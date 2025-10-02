@@ -21,7 +21,9 @@ export default function RootLayout() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" /> {/* This is your Splash entry */}
         <Stack.Screen name="getStarted" />
-        
+        <Stack.Screen name="registerScreen" />
+        <Stack.Screen name="loginScreen" />
+       
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>
