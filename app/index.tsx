@@ -7,7 +7,7 @@ const SplashScreen = () => {
   const router = useRouter();
   useEffect(() => {
     const timer = setTimeout(() => {
-      return router.replace({ pathname: "/(tabs)" }); // 👈 change to a valid route like "/" or another defined route
+      return router.replace({ pathname: "/getStarted" }); // 👈 change to a valid route like "/" or another defined route
     }, 400);
   }, []);
 

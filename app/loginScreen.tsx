@@ -1,4 +1,4 @@
-import Input from "@/components/input";
+import LoginField from "@/components/inputFields";
 import PrimaryButton from "@/components/primaryButton";
 import SecoundryButton from "@/components/secondaryButton";
 import axios from "axios";
@@ -23,13 +23,25 @@ const LoginScreen = ({ navigation }: any) => {
     setLoading(true);
     try {
       const res = await axios.post(
-        "https://yemiecom.infolaravel.news/api/v1/auth/login",
-        { email_or_phone: email, password }
+        "https://yemi.store/api/v2/seller/auth/login",
+        { email, password },
+        {
+          headers: {
+            Accept: "application/json", // some APIs need this
+            "Content-Type": "application/json",
+          },
+        }
       );
-
+      console.log("Login response:", res.data); // 🔍 check what comes back
       Alert.alert("Success", "Login successful!");
       router.replace("/(tabs)");
     } catch (error: any) {
+      console.log(
+        "🔴 Login error full:",
+        JSON.stringify(error.response?.data, null, 2)
+      );
+      console.log("🔴 Status:", error.response?.status);
+      console.log("🔴 Headers:", error.response?.headers);
       Alert.alert(
         "Login Failed",
         error.response?.data?.message ?? "Invalid credentials"
@@ -75,7 +87,8 @@ const LoginScreen = ({ navigation }: any) => {
       </View>
       <View style={styles.inputview}>
         {/* Email Field */}
-        <Input
+        <LoginField
+          // label="Email"
           placeholder="Enter Email"
           value={email}
           onChangeText={setEmail}
@@ -83,7 +96,7 @@ const LoginScreen = ({ navigation }: any) => {
         {/* Password Field */}
       </View>
       <View style={styles.inputview}>
-        <Input
+        <LoginField
           placeholder=" Enter Password"
           value={password}
           onChangeText={setPassord}

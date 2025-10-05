@@ -1,6 +1,14 @@
 import React from "react";
-import { View, Text, StyleSheet, FlatList, Image } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  Image,
+  Pressable,
+} from "react-native";
 import Heading from "@/components/heading";
+import { router } from "expo-router";
 
 const incomingOrders = [
   {
@@ -67,23 +75,33 @@ const incomingOrder = () => {
       <Heading
         title="Incoming Order"
         leftIcon="arrow-back"
-        onLeftPress={() => console.log("Back pressed")}
+        onLeftPress={() => router.back()}
       />
       <Text style={styles.sectionTitle}>Orders</Text>
       <FlatList
-     
         showsVerticalScrollIndicator={false}
         data={incomingOrders}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <View style={styles.orderRow}>
-            <Image source={{ uri: item.avatar }} style={styles.avatar} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.orderName}>{item.name}</Text>
-              <Text style={styles.orderId}>Order {item.order}</Text>
+          <Pressable
+            onPress={() => {
+              router.push({
+                pathname: "/orderDetail",
+                params: {
+                  ...item,
+                },
+              });
+            }}
+          >
+            <View style={styles.orderRow}>
+              <Image source={{ uri: item.avatar }} style={styles.avatar} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.orderName}>{item.name}</Text>
+                <Text style={styles.orderId}>Order {item.order}</Text>
+              </View>
+              <Text style={styles.orderAmount}>{item.amount}</Text>
             </View>
-            <Text style={styles.orderAmount}>{item.amount}</Text>
-          </View>
+          </Pressable>
         )}
       />
     </View>
