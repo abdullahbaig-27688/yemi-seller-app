@@ -1,13 +1,13 @@
 import LoginField from "@/components/inputFields";
 import PrimaryButton from "@/components/primaryButton";
 import SecoundryButton from "@/components/secondaryButton";
+import AsyncStorage from "@react-native-async-storage/async-storage"; // 👈 Add this import
 import axios from "axios";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
-
 const LoginScreen = ({ navigation }: any) => {
   const [email, setEmail] = useState("");
   const [password, setPassord] = useState("");
@@ -33,6 +33,15 @@ const LoginScreen = ({ navigation }: any) => {
         }
       );
       console.log("Login response:", res.data); // 🔍 check what comes back
+      // ✅ Store token
+      const token = res.data?.token || res.data?.access_token;
+      if (token) {
+        await AsyncStorage.setItem("seller_token", token);
+        console.log("✅ Token saved successfully:", token);
+      } else {
+        console.log("⚠️ No token found in login response");
+      }
+
       Alert.alert("Success", "Login successful!");
       router.replace("/(tabs)");
     } catch (error: any) {

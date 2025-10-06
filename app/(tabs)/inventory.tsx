@@ -9,82 +9,11 @@ import {
 } from "react-native";
 import Heading from "@/components/heading";
 import { router } from "expo-router";
+import { useProducts } from "@/src/context/ProductContext"; // 👈 import context
 
-const Products = [
-  {
-    id: "1",
-    name: "Handmade Soap",
-    quantity: "10 in stock",
-    avatar: "https://randomuser.me/api/portraits/men/1.jpg",
-  },
-  {
-    id: "2",
-    name: "Organic Candles",
-    quantity: "25 in stock",
-    avatar: "https://randomuser.me/api/portraits/women/2.jpg",
-  },
-  {
-    id: "3",
-    name: "Essential Oils",
-    quantity: "5 in stock",
-    avatar: "https://randomuser.me/api/portraits/men/3.jpg",
-  },
-  {
-    id: "4",
-    name: "Bath Bombs",
-    quantity: "15 in stock",
-    avatar: "https://randomuser.me/api/portraits/women/4.jpg",
-  },
-  {
-    id: "5",
-    name: "Handmade Soap",
-    quantity: "10 in stock",
-    avatar: "https://randomuser.me/api/portraits/men/1.jpg",
-  },
-  {
-    id: "6",
-    name: "Organic Candles",
-    quantity: "25 in stock",
-    avatar: "https://randomuser.me/api/portraits/women/2.jpg",
-  },
-  {
-    id: "7",
-    name: "Essential Oils",
-    quantity: "5 in stock",
-    avatar: "https://randomuser.me/api/portraits/men/3.jpg",
-  },
-  {
-    id: "8",
-    name: "Bath Bombs",
-    quantity: "15 in stock",
-    avatar: "https://randomuser.me/api/portraits/women/4.jpg",
-  },
-  {
-    id: "9",
-    name: "Handmade Soap",
-    quantity: "10 in stock",
-    avatar: "https://randomuser.me/api/portraits/men/1.jpg",
-  },
-  {
-    id: "10",
-    name: "Organic Candles",
-    quantity: "25 in stock",
-    avatar: "https://randomuser.me/api/portraits/women/2.jpg",
-  },
-  {
-    id: "11",
-    name: "Essential Oils",
-    quantity: "5 in stock",
-    avatar: "https://randomuser.me/api/portraits/men/3.jpg",
-  },
-  {
-    id: "12",
-    name: "Bath Bombs",
-    quantity: "15 in stock",
-    avatar: "https://randomuser.me/api/portraits/women/4.jpg",
-  },
-];
 const Inventory = () => {
+  const { products } = useProducts(); // 👈 get products from context
+
   return (
     <View style={styles.container}>
       <Heading
@@ -92,40 +21,58 @@ const Inventory = () => {
         leftIcon="arrow-back"
         onLeftPress={() => router.back()}
       />
+
       <Text style={styles.sectionTitle}>Products</Text>
-      <FlatList
-        showsVerticalScrollIndicator={false}
-        data={Products}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <View style={styles.orderRow}>
-            <Image source={{ uri: item.avatar }} style={styles.avatar} />
-            <View style={{ flex: 1, marginLeft: 12 }}>
-              <Text style={styles.orderName}>{item.name}</Text>
-              <Text>{item.quantity}</Text>
+
+      {products.length === 0 ? (
+        <Text style={styles.emptyText}>No products yet. Add one!</Text>
+      ) : (
+        <FlatList
+          showsVerticalScrollIndicator={false}
+          data={products}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <View style={styles.orderRow}>
+              {/* ✅ Use first image if available */}
+              {item.images && item.images.length > 0 ? (
+                <Image source={{ uri: item.images[0] }} style={styles.avatar} />
+              ) : (
+                <View style={[styles.avatar, styles.placeholderAvatar]}>
+                  <Text style={{ color: "#888" }}>📦</Text>
+                </View>
+              )}
+
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={styles.orderName}>{item.name}</Text>
+                <Text>{item.minimum_order_qty} in stock</Text>
+                <Text>${item.unit_price}</Text>
+              </View>
+
+              <View style={styles.buttonGap}>
+                <Pressable
+                  onPress={() =>
+                    router.push({
+                      pathname: "/editProduct",
+                      params: { id: item.id },
+                    })
+                  }
+                >
+                  <Text style={styles.editButton}>Edit</Text>
+                </Pressable>
+                <Pressable onPress={() => console.log("Delete pressed")}>
+                  <Text style={styles.deleteButton}>Delete</Text>
+                </Pressable>
+              </View>
             </View>
-            <View style={styles.buttonGap}>
-              <Pressable
-                onPress={() =>
-                  router.push({
-                    pathname: "/editProduct",
-                    params: { id: item.id },
-                  })
-                }
-              >
-                <Text style={styles.editButton}>Edit</Text>
-              </Pressable>
-              <Pressable onPress={() => console.log("Delete pressed")}>
-                <Text style={styles.deleteButton}>Delete</Text>
-              </Pressable>
-            </View>
-          </View>
-        )}
-      />
+          )}
+        />
+      )}
     </View>
   );
 };
+
 export default Inventory;
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -138,11 +85,22 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginBottom: 12,
   },
+  emptyText: {
+    textAlign: "center",
+    marginTop: 40,
+    color: "#888",
+    fontSize: 16,
+  },
   avatar: {
     width: 50,
     height: 50,
     borderRadius: 25,
     marginRight: 8,
+  },
+  placeholderAvatar: {
+    backgroundColor: "#eee",
+    alignItems: "center",
+    justifyContent: "center",
   },
   orderRow: {
     flexDirection: "row",
@@ -155,8 +113,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-
-  buttonGap:{
+  buttonGap: {
     flexDirection: "row",
     gap: 5,
   },
