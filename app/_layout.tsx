@@ -1,3 +1,4 @@
+import { useColorScheme } from "@/hooks/use-color-scheme";
 import {
   DarkTheme,
   DefaultTheme,
@@ -6,7 +7,6 @@ import {
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
-import { useColorScheme } from "@/hooks/use-color-scheme";
 
 // 🧩 Import the ProductProvider
 import { ProductProvider } from "@/src/context/ProductContext";
@@ -25,8 +25,18 @@ export default function RootLayout() {
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="index" /> {/* Splash entry */}
           <Stack.Screen name="getStarted" />
-          <Stack.Screen name="registerScreen" />
-          <Stack.Screen name="loginScreen" />
+          <Stack.Screen
+            name="registerScreen"
+            options={{
+              gestureEnabled: false, // 👈 disables swipe-back gesture
+            }}
+          />
+          <Stack.Screen
+            name="loginScreen"
+            options={{
+              gestureEnabled: false, // 👈 disables swipe-back gesture
+            }}
+          />
           {/* Add your other screens here (e.g., addProduct, inventory, etc.) */}
         </Stack>
         <StatusBar style="auto" />

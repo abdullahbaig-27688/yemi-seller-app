@@ -50,7 +50,7 @@ const getStarted = () => {
         {/* Primary Button */}
         <PrimaryButton
           title="Let's get started"
-          onPress={() => router.replace("../registerScreen")}
+          onPress={() => router.navigate("../registerScreen")}
         />
         <View style={styles.buttonRow}>
           <SecoundryButton
