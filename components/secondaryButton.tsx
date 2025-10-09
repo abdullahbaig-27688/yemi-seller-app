@@ -15,8 +15,11 @@ const secondaryButton = ({ title, onPress }: Props) => {
 export default secondaryButton;
 const styles = StyleSheet.create({
   button: {
+    backgroundColor:"#fff",
     justifyContent: "center",
+    alignItems:'center',
     zIndex: 1,
+    // borderWidth:1,
     alignSelf: "center",
     marginTop: 10,
   },

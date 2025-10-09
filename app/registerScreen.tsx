@@ -11,6 +11,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  ScrollView,
   View,
 } from "react-native";
 import CountryPicker from "react-native-country-picker-modal";
@@ -83,9 +84,8 @@ const SignUpScreen = () => {
         formData,
         {
           headers: {
-          
             Accept: "application/json",
-             "Content-Type": "multipart/form-data",
+            "Content-Type": "multipart/form-data",
           },
         }
       );
@@ -131,10 +131,10 @@ const SignUpScreen = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView contentContainerStyle={styles.container}>
       <Svg style={styles.toShape} viewBox="0 0 200 200">
         <Path
-          fill="#aec1f3ff"
+          fill="#8aa2dfff"
           d="M47.7,-62.7C62.6,-52.5,77.1,-39.5,83.4,-22.4C89.7,-5.2,87.7,16,75.4,27.9C63.1,39.8,40.5,42.4,21.3,50.6C2,58.9,-13.8,72.9,-30.7,72.8C-47.7,72.8,-65.8,58.8,-75.8,40.3C-85.8,21.7,-87.7,-1.4,-78.7,-18.7C-69.7,-36,-49.9,-47.6,-32.1,-58.1C-14.3,-68.6,1.4,-78,18.8,-80.4C36.2,-82.7,55.2,-77.3,47.7,-62.7Z"
           transform="translate(100 100)"
         />
@@ -247,10 +247,10 @@ const SignUpScreen = () => {
         <PrimaryButton title="Next" onPress={handleSignup} />
         <SecondaryButton
           title="Cancel"
-          onPress={() => router.replace("/getStarted")}
+          onPress={() => router.back()}
         />
       </View>
-    </View>
+    </ScrollView>
   );
 };
 
@@ -259,8 +259,9 @@ export default SignUpScreen;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: "center",
+    // justifyContent: "center",
     paddingHorizontal: 16,
+    paddingVertical: 20,
     backgroundColor: "white",
   },
   toShape: {
@@ -285,14 +286,21 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   mainview: {
-    marginBottom: 15,
+    
+    marginBottom: 10,
     width: "100%",
   },
   inputview: {
-    backgroundColor: "#F8F8F8",
+    // backgroundColor: "#F8F8F8",
+    backgroundColor: "#eee",
+
     width: "100%",
     height: 50,
-    borderRadius: 40,
+    borderRadius: 10,
+    borderColor: "#ccc",
+
+    borderWidth: 1,
+
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 20,

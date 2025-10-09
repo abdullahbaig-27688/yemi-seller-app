@@ -6,8 +6,6 @@ import { StyleSheet, Text, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
 const getStarted = () => {
-  
-
   return (
     <View style={styles.container}>
       {/* Background SVG Shapes */}
@@ -42,7 +40,10 @@ const getStarted = () => {
       {/* <Text style={styles.logo}>yemi</Text> */}
 
       {/* Tagline */}
-      <Text style={styles.title}>“Shop Smart. Shop Yemi.”</Text>
+      <View>
+        <Text style={styles.title}>“Shop Smart. Shop Yemi.”</Text>
+      </View>
+      
       {/* </View> */}
 
       {/* Secondary Button with Arrow */}
@@ -52,11 +53,13 @@ const getStarted = () => {
           title="Let's get started"
           onPress={() => router.navigate("../registerScreen")}
         />
+
         <View style={styles.buttonRow}>
           <SecoundryButton
             title="I already have an account"
             onPress={() => router.navigate("../loginScreen")}
           />
+
           <Image
             source={require("../assets/images/Button.png")}
             style={styles.arrowIcon}
@@ -72,8 +75,10 @@ export default getStarted;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 16,
+
     backgroundColor: "white",
   },
 
@@ -116,7 +121,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#202020",
     alignSelf: "center",
-    marginBottom: "50%",
+    marginBottom: "30%",
   },
 
   // Secondary Button Row

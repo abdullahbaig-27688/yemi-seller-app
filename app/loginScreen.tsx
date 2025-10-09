@@ -124,7 +124,7 @@ const LoginScreen = ({ navigation }: any) => {
 
         <SecoundryButton
           title="Cancel"
-          onPress={() => router.replace("/getStarted")}
+          onPress={() => router.back()}
         />
       </View>
 
@@ -175,10 +175,10 @@ const styles = StyleSheet.create({
     marginTop: 100,
   },
   inputview: {
-    backgroundColor: "#F8F8F8",
+    backgroundColor: "#eee",
     width: "100%",
     height: 50,
-    borderRadius: 40,
+    borderRadius: 10,
     paddingVertical: 5,
     flexDirection: "row",
     justifyContent: "space-between",

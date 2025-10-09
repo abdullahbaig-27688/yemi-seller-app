@@ -17,13 +17,13 @@ export default primaryButton;
 const styles = StyleSheet.create({
   button: {
     width: "100%",
-    height: 50,
+    paddingVertical:10,
     backgroundColor: "#FA8232",
-    borderRadius: 16,
+    borderRadius: 10,
     justifyContent: "center",
     alignItems: "center",
-    zIndex: 1,
-    marginBottom: 40,
+    // zIndex: 1,
+    // marginBottom: 40,
   },
   text: {
     color: "#000",
