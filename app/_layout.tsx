@@ -22,11 +22,15 @@ export default function RootLayout() {
     // ✅ Wrap your whole app inside ProductProvider
     <ProductProvider>
       <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-        <Stack screenOptions={{ headerShown: false, gestureEnabled: false }}>
+        <Stack
+          initialRouteName="getStarted" // ✅ Set initial route
+          screenOptions={{ headerShown: false, gestureEnabled: false }}
+        >
           <Stack.Screen name="getStarted" />
           <Stack.Screen name="index" />
           <Stack.Screen name="registerScreen" />
           <Stack.Screen name="loginScreen" />
+          <Stack.Screen name="tab" />
           {/* Add your other screens here (e.g., addProduct, inventory, etc.) */}
         </Stack>
         <StatusBar style="auto" />
