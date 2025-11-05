@@ -14,11 +14,13 @@ type Props = {
   label?: string;
   onImagesChange?: (images: string[]) => void;
 };
-const imagePickerBox = ({ label, onImagesChange }: Props) => {
+
+const ImagePickerBox = ({ label, onImagesChange }: Props) => {
   const [images, setImages] = React.useState<string[]>([]);
+
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+     mediaTypes: ImagePicker.MediaTypeOptions.Images, // ✅ correct for v17+
       allowsMultipleSelection: true,
       quality: 1,
     });
@@ -63,7 +65,7 @@ const imagePickerBox = ({ label, onImagesChange }: Props) => {
   );
 };
 
-export default imagePickerBox;
+export default ImagePickerBox;
 
 const styles = StyleSheet.create({
   container: { marginBottom: 20 },
@@ -79,20 +81,9 @@ const styles = StyleSheet.create({
     marginRight: 10,
     backgroundColor: "#f9f9f9",
   },
-  uploadText: {
-    fontSize: 12,
-    color: "#777",
-    marginTop: 4,
-  },
-  imageWrapper: {
-    position: "relative",
-    marginRight: 10,
-  },
-  image: {
-    width: 100,
-    height: 100,
-    borderRadius: 10,
-  },
+  uploadText: { fontSize: 12, color: "#777", marginTop: 4 },
+  imageWrapper: { position: "relative", marginRight: 10 },
+  image: { width: 100, height: 100, borderRadius: 10 },
   removeBtn: {
     position: "absolute",
     top: -5,

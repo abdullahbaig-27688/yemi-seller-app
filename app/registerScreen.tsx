@@ -1,17 +1,16 @@
 import RegisterField from "@/components/inputFields";
 import PrimaryButton from "@/components/primaryButton";
-import SecondaryButton from "@/components/secondaryButton";
 import axios from "axios";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
   Alert,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  ScrollView,
   View,
 } from "react-native";
 import CountryPicker from "react-native-country-picker-modal";
@@ -152,37 +151,33 @@ const SignUpScreen = () => {
 
       {/* Input Fields */}
       <View style={styles.mainview}>
-        <View style={styles.inputview}>
-          <RegisterField
-            placeholder="Enter Email"
-            value={email}
-            onChangeText={setEmail}
-          />
-        </View>
+        {/* Email Field */}
+        <RegisterField
+          placeholder="Enter Email"
+          value={email}
+          onChangeText={setEmail}
+        />
 
-        <View style={styles.inputview}>
-          <RegisterField
-            placeholder="Enter Password"
-            value={password}
-            onChangeText={setPassword}
-          />
-        </View>
-
-        <View style={styles.inputview}>
-          <RegisterField
-            placeholder="Enter First Name"
-            value={firstName}
-            onChangeText={setFirstName}
-          />
-        </View>
-
-        <View style={styles.inputview}>
-          <RegisterField
-            placeholder="Enter Last Name"
-            value={lastName}
-            onChangeText={setLastName}
-          />
-        </View>
+        {/* Register Field */}
+        <RegisterField
+          placeholder="Enter Password"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+        />
+        {/* First Name Field */}
+        <RegisterField
+          placeholder="Enter First Name"
+          value={firstName}
+          onChangeText={setFirstName}
+        />
+        {/* Last Name Field */}
+        <RegisterField
+          placeholder="Enter Last Name"
+          value={lastName}
+          onChangeText={setLastName}
+        />
+        {/* </View> */}
 
         {/* Phone with country picker */}
         <View style={styles.inputview}>
@@ -207,21 +202,19 @@ const SignUpScreen = () => {
           />
         </View>
 
-        <View style={styles.inputview}>
-          <RegisterField
-            placeholder="Enter Shop Name"
-            value={shopName}
-            onChangeText={setShopName}
-          />
-        </View>
+        {/* Shop Name Fields */}
+        <RegisterField
+          placeholder="Enter Shop Name"
+          value={shopName}
+          onChangeText={setShopName}
+        />
+        {/* Shop Address Field */}
+        <RegisterField
+          placeholder="Enter Shop Address"
+          value={shopAddress}
+          onChangeText={setShopAddress}
+        />
 
-        <View style={styles.inputview}>
-          <RegisterField
-            placeholder="Enter Shop Address"
-            value={shopAddress}
-            onChangeText={setShopAddress}
-          />
-        </View>
         {/* File Uploads */}
         <TouchableOpacity
           style={styles.uploadBtn}
@@ -243,12 +236,13 @@ const SignUpScreen = () => {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.mainview}>
-        <PrimaryButton title="Next" onPress={handleSignup} />
-        <SecondaryButton
+      <View style={styles.buttonRow}>
+        <PrimaryButton
           title="Cancel"
           onPress={() => router.back()}
+          variant="outline"
         />
+        <PrimaryButton title="Next" onPress={handleSignup} variant="primary" />
       </View>
     </ScrollView>
   );
@@ -286,20 +280,18 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   mainview: {
-    
     marginBottom: 10,
     width: "100%",
   },
   inputview: {
-    // backgroundColor: "#F8F8F8",
     backgroundColor: "#eee",
 
     width: "100%",
     height: 50,
     borderRadius: 10,
-    borderColor: "#ccc",
+    // borderColor: "#ccc",
 
-    borderWidth: 1,
+    // borderWidth: 1,
 
     flexDirection: "row",
     alignItems: "center",
@@ -322,5 +314,11 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginBottom: 10,
     alignItems: "center",
+  },
+  buttonRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 10,
+    marginTop: 20,
   },
 });

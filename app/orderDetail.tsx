@@ -1,8 +1,8 @@
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { View, Text, StyleSheet, Image, TouchableOpacity } from "react-native";
-import Heading from "@/components/heading";
+import Heading from "@/components/Header";
 import PrimaryButton from "@/components/primaryButton";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
+import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 const OrderDetail = () => {
   const { id, name, order, amount, avatar } = useLocalSearchParams();

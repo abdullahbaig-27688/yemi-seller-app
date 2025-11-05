@@ -1,33 +1,73 @@
 import React from "react";
-import { View, Text, StyleSheet, Pressable } from "react-native";
+import { Text, StyleSheet, Pressable } from "react-native";
+
 type Props = {
   title: string;
   onPress: () => void;
+  style?: object;
+  variant?: "primary" | "outline";
+  fullWidth?: boolean; // ✅ new prop for flexibility
 };
 
-const primaryButton = ({ title, onPress }: Props) => {
+const PrimaryButton = ({
+  title,
+  onPress,
+  style,
+  variant = "primary",
+  fullWidth = false,
+}: Props) => {
+  const isOutline = variant === "outline";
+
   return (
-    <Pressable onPress={onPress} style={styles.button}>
-      <Text style={styles.text}>{title}</Text>
+    <Pressable
+      onPress={onPress}
+      style={[
+        styles.button,
+        isOutline ? styles.outlineButton : styles.primaryButton,
+        fullWidth && styles.fullWidth, // ✅ only full width when needed
+        style,
+      ]}
+    >
+      <Text style={[styles.text, isOutline && styles.outlineText]}>
+        {title}
+      </Text>
     </Pressable>
   );
 };
 
-export default primaryButton;
+export default PrimaryButton;
+
 const styles = StyleSheet.create({
   button: {
-    width: "100%",
-    paddingVertical:10,
-    backgroundColor: "#FA8232",
+    paddingVertical: 12,
     borderRadius: 10,
     justifyContent: "center",
     alignItems: "center",
-    // zIndex: 1,
-    // marginBottom: 40,
+    flex: 1, // ✅ behaves well inside horizontal flex rows
+  },
+  fullWidth: {
+    width: "100%", // ✅ for single-column layouts
+    flex: 0,
+  },
+  primaryButton: {
+    backgroundColor: "#FA8232",
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  outlineButton: {
+    backgroundColor: "transparent",
+    borderWidth: 1.5,
+    borderColor: "#FA8232",
   },
   text: {
-    color: "#000",
     fontSize: 16,
     fontWeight: "600",
+    color: "#fff",
+  },
+  outlineText: {
+    color: "#FA8232",
   },
 });

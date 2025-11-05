@@ -1,160 +1,284 @@
-import React from "react";
-import { View, Text, StyleSheet, FlatList, Image } from "react-native";
-
-import Heading from "@/components/heading";
+import React, { useEffect, useState } from "react";
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  FlatList,
+  Image,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
+import HomeHeader from "@/components/Header";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
+const icons = {
+  pending: require("@/assets/images/icons/pending.png"),
+  confirmed: require("@/assets/images/icons/confirmed.png"),
+  packaging: require("@/assets/images/icons/packaging.png"),
+  delivery: require("@/assets/images/icons/out-of-delivery.png"),
+  deliverd: require("@/assets/images/icons/delivered.png"),
 
-const orders = [
-  { id: "1", name: "Liam Harper", order: "#12345", amount: "$45", avatar: "https://randomuser.me/api/portraits/men/1.jpg" },
-  { id: "2", name: "Olivia Bennett", order: "#12346", amount: "$60", avatar: "https://randomuser.me/api/portraits/women/2.jpg" },
-  { id: "3", name: "Noah Carter", order: "#12347", amount: "$25", avatar: "https://randomuser.me/api/portraits/men/3.jpg" },
-  { id: "4", name: "Ava Thompson", order: "#12348", amount: "$80", avatar: "https://randomuser.me/api/portraits/women/4.jpg" },
-  { id: "5", name: "Liam Harper", order: "#12345", amount: "$45", avatar: "https://randomuser.me/api/portraits/men/1.jpg" },
-  { id: "6", name: "Olivia Bennett", order: "#12346", amount: "$60", avatar: "https://randomuser.me/api/portraits/women/2.jpg" },
-  { id: "7", name: "Noah Carter", order: "#12347", amount: "$25", avatar: "https://randomuser.me/api/portraits/men/3.jpg" },
-  { id: "8", name: "Ava Thompson", order: "#12348", amount: "$80", avatar: "https://randomuser.me/api/portraits/women/4.jpg" },
-]
+  cancelled: require("@/assets/images/icons/canceled.png"),
+  returned: require("@/assets/images/icons/returned.png"),
+  failed: require("@/assets/images/icons/failed-to-deliver.png"),
+  withdraw: require("@/assets/images/icons/withdraw.png"),
+  peningWithdraw: require("@/assets/images/icons/pw.png"),
+  alreadyWithdrawn: require("@/assets/images/icons/aw.png"),
+  delieveryCharges: require("@/assets/images/icons/tdce.png"),
+  taxGiven: require("@/assets/images/icons/ttg.png"),
+  collectedCash: require("@/assets/images/icons/cc.png")
+};
 
-const DashBoard = () => {
+const recentOrders = [
+  { id: "1", customer: "John Doe", amount: "₦20,000", status: "Pending" },
+  { id: "2", customer: "Jane Smith", amount: "₦15,000", status: "Delivered" },
+  { id: "3", customer: "Mike Johnson", amount: "₦8,000", status: "Shipped" },
+];
+
+const statusCards = [
+  { id: "1", title: "Pending", status: "20", icon: icons.pending },
+  { id: "2", title: "Confirmed", status: "30", icon: icons.confirmed },
+  { id: "3", title: "Packaging", status: "10", icon: icons.packaging },
+  { id: "4", title: "Out for Delivery", status: "5", icon: icons.delivery },
+  { id: "5", title: "Delivered", status: "30", icon: icons.deliverd },
+  { id: "6", title: "Cancelled", status: "40", icon: icons.cancelled },
+  { id: "7", title: "Returned", status: "5", icon: icons.returned },
+  { id: "8", title: "Failed to Deliver", status: "0", icon: icons.failed },
+];
+
+const quickActions = [
+  {
+    id: "1",
+    title: "Withdrawable Balance",
+    ammount: "200$",
+    // icon: "wallet-outline",
+    icon: icons.withdraw,
+  },
+  {
+    id: "2",
+    title: "Pending Withdraw",
+    ammount: "300$",
+    // icon: "hourglass-outline",
+    icon: icons.peningWithdraw,
+  },
+  {
+    id: "3",
+    title: "Already Withdrawn",
+    ammount: "400$",
+    // icon: "checkmark-circle-outline",
+    icon: icons.alreadyWithdrawn,
+  },
+  {
+    id: "4",
+    title: "Total Delievery Charge Earned",
+    ammount: "100$",
+    // icon: "cash-outline",
+    icon: icons.delieveryCharges,
+  },
+  {
+    id: "5",
+    title: "Total Tax Given",
+    ammount: "60$",
+    // icon: "receipt-outline",
+    icon: icons.taxGiven,
+  },
+  {
+    id: "6",
+    title: "Collected Cash",
+    ammount: "500$",
+    // icon: "pricetag-outline",
+    icon:icons.collectedCash
+  },
+  // { id: "7", title: "View Analytics" },
+  // { id: "8", title: "View Analytics" },
+];
+
+// Array of different orange gradients
+// const gradients = [
+//   ["#FFA500", "#FF8C00"],
+//   ["#FF9A3C", "#FF7F50"],
+//   ["#FFB347", "#FF8C00"],
+//   ["#FF9966", "#FF6600"],
+//   ["#FFA64D", "#FF8000"],
+//   ["#FFAD5C", "#FF7518"],
+//   ["#FFAA33", "#FF8800"],
+//   ["#FF8C42", "#FF5722"],
+// ];
+const gradients = [
+  ["#F6F5F6", "#F2F4F5"],
+  ["#F6F5F6", "#F2F4F5"],
+  ["#F6F5F6", "#F2F4F5"],
+  ["#F6F5F6", "#F2F4F5"],
+  ["#F6F5F6", "#F2F4F5"],
+  ["#F6F5F6", "#F2F4F5"],
+  ["#F6F5F6", "#F2F4F5"],
+  ["#F6F5F6", "#F2F4F5"],
+];
+
+const HomeScreen = () => {
+  const [displayName, setDisplayName] = useState("");
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const userData = await AsyncStorage.getItem("user");
+        console.log("📦 Stored User Data:", userData); // 👈 see what’s inside
+        if (userData) {
+          const parsedUser = JSON.parse(userData);
+          console.log("✅ Parsed User:", parsedUser);
+          setDisplayName(parsedUser?.name || parsedUser?.username || "Vendor");
+        } else {
+          console.log("❌ No user found in AsyncStorage");
+        }
+      } catch (err) {
+        console.log("⚠️ Error loading user:", err);
+      }
+    };
+    fetchUser();
+  }, []);
   return (
-    <View style={styles.container}>
-      {/* Custom Heading */}
-      <Heading
-        title="Dashboard"
-        rightIcon="notifications-outline"
-        onRightPress={() => console.log("Notifications pressed")}
-      />
+    <SafeAreaView style={styles.container}>
+      <HomeHeader title="Dashboard" />
+      <ScrollView
+      showsVerticalScrollIndicator={false}
+        style={styles.content}
+        contentContainerStyle={{ paddingBottom: "30%" }}
+      >
+        <Text style={styles.greeting}>Hello, {displayName}</Text>
 
-      {/* Earnings Card */}
-      <View style={styles.earningsCard}>
-        <Text style={styles.cardLabel}>Total Earnings</Text>
-        <Text style={styles.cardValue}>$12,500</Text>
-      </View>
+        {/* Order Status Cards */}
+        <Text style={styles.sectionTitle}>Order Status</Text>
+        <FlatList
+          data={statusCards}
+          keyExtractor={(item) => item.id}
+          numColumns={2}
+          renderItem={({ item, index }) => (
+            <LinearGradient
+              colors={gradients[index % gradients.length]}
+              style={styles.statusCard}
+            >
+              {/* <Ionicons
+                name={item.icon}
+                size={26}
+                color="#FA8232"
+                style={{ marginBottom: 6 }}
+              /> */}
+              <Image
+                source={item.icon}
+                style={{
+                  width: 30,
+                  height: 30,
+                  marginBottom: 6,
+                  resizeMode: "contain",
+                }}
+              />
 
-      {/* Stats Row */}
-      <View style={styles.statsRow}>
-        <View style={styles.statsBox}>
-          <Text style={styles.statLabel}>Daily Sales</Text>
-          <Text style={styles.statValue}>$350</Text>
-        </View>
-        <View style={styles.statsBox}>
-          <Text style={styles.statLabel}>Orders Today</Text>
-          <Text style={styles.statValue}>12</Text>
-        </View>
-      </View>
+              <Text style={styles.statusText}>{item.title}</Text>
+              <Text style={styles.statusAmmount}>{item.status}</Text>
+            </LinearGradient>
+          )}
+          columnWrapperStyle={{
+            justifyContent: "space-between",
+            marginBottom: 12,
+          }}
+          scrollEnabled={false}
+        />
 
-      {/* Recent Orders */}
-      <Text style={styles.sectionTitle}>Recent Orders</Text>
-      <FlatList showsVerticalScrollIndicator={false}
-        data={orders}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <View style={styles.orderRow}>
-            <Image source={{ uri: item.avatar }} style={styles.avatar} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.orderName}>{item.name}</Text>
-              <Text style={styles.orderId}>Order {item.order}</Text>
+        {/* Recent Orders */}
+        {/* <Text style={styles.sectionTitle}>Recent Orders</Text>
+        <FlatList
+          data={recentOrders}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <View style={styles.orderCard}>
+              <Text style={styles.orderCustomer}>{item.customer}</Text>
+              <Text style={styles.orderAmount}>{item.amount}</Text>
+              <Text style={styles.orderStatus}>{item.status}</Text>
             </View>
-            <Text style={styles.orderAmount}>{item.amount}</Text>
-          </View>
-        )}
-      />
-            {/* Bottom Nav */}
-      {/* <View style={styles.bottomNav}>
-        <Ionicons name="home" size={24} color="black" />
-        <Ionicons name="pricetag-outline" size={24} color="gray" />
-        <Ionicons name="cart-outline" size={24} color="gray" />
-        <Ionicons name="chatbubble-outline" size={24} color="gray" />
-        <Ionicons name="person-outline" size={24} color="gray" />
-      </View> */}
+          )}
+        /> */}
 
-    </View>
+        {/* Quick Actions */}
+        <Text style={styles.sectionTitle}>Quick Actions</Text>
+        <FlatList
+          data={quickActions}
+          keyExtractor={(item) => item.id}
+          numColumns={2}
+          renderItem={({ item, index }) => (
+            <LinearGradient
+              colors={gradients[index % gradients.length]}
+              style={styles.statusCard}
+            >
+              {/* <Ionicons
+                name={item.icon}
+                size={26}
+                color="#FA8232"
+                style={{ marginBottom: 6 }}
+              /> */}
+              <Image
+                source={item.icon}
+                style={{
+                  width: 25,
+                  height: 25,
+                  marginBottom: 6,
+                  resizeMode: "contain",
+                }}
+              />
+              <Text style={styles.statusAmmount}>{item.ammount}</Text>
+              <Text style={styles.statusText}>{item.title}</Text>
+            </LinearGradient>
+          )}
+          columnWrapperStyle={{
+            justifyContent: "space-between",
+            marginBottom: 12,
+          }}
+          scrollEnabled={false}
+        />
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
-export default DashBoard;
+export default HomeScreen;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff", padding: 16, paddingTop: 50 },
-
-  earningsCard: {
-    backgroundColor: '#FFD2B4',
-    padding: 20,
-    borderRadius: 16,
-    marginBottom: 20,
-  },
-  cardLabel: {
-    fontSize: 14,
-    color: "#555",
-  },
-  cardValue: {
-    fontSize: 22,
-    fontWeight: "bold",
-  },
-
-  statsRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 20,
-   
-  },
-  statsBox: {
-    flex: 1,
-    backgroundColor: "#f9f9f9",
-    padding: 16,
-    borderRadius: 12,
-    marginHorizontal: 5,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: '#304D69'
-  },
-  statLabel: {
-    fontSize: 14,
-    color: "#555",
-  },
-  statValue: {
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-
+  container: { flex: 1, backgroundColor: "#fff" },
+  content: { padding: 20 },
+  greeting: { fontSize: 24, fontWeight: "600", marginBottom: 16 },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 12,
-  },
-
-  orderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 10,
-    borderBottomWidth: 0.5,
-    borderBottomColor: "#ddd",
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 12,
-  },
-  orderName: {
-    fontSize: 16,
     fontWeight: "600",
+    marginTop: 20,
+    marginBottom: 8,
   },
-  orderId: {
-    fontSize: 13,
-    color: "#777",
+  statusCard: {
+    flex: 1,
+    marginHorizontal: 3,
+    height: 100,
+    // borderWidth:1,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  orderAmount: {
-    fontSize: 15,
-    fontWeight: "bold",
-    color: "#333",
+  statusAmmount: {
+    color: "#FA8232",
+    fontSize: 20,
+    fontWeight: "800",
+    textAlign: "center",
   },
-   bottomNav: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    paddingVertical: 12,
-    borderTopWidth: 0.5,
-    borderTopColor: "#ddd",
-    marginTop: 10,
+  statusText: {
+    color: "#FA8232",
+    fontSize: 14,
+    fontWeight: "600",
+    textAlign: "center",
   },
+  orderCard: {
+    backgroundColor: "#f9f9f9",
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+  orderCustomer: { fontSize: 16, fontWeight: "500" },
+  orderAmount: { fontSize: 14, color: "#333" },
+  orderStatus: { fontSize: 14, color: "#FA8232", marginTop: 4 },
 });

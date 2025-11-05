@@ -52,6 +52,10 @@ const getStarted = () => {
         <PrimaryButton
           title="Let's get started"
           onPress={() => router.navigate("../registerScreen")}
+          variant="primary"
+           fullWidth // ✅ take full width vertically
+          
+          
         />
 
         <View style={styles.buttonRow}>

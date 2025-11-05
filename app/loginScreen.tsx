@@ -1,12 +1,18 @@
 import LoginField from "@/components/inputFields";
 import PrimaryButton from "@/components/primaryButton";
-import SecoundryButton from "@/components/secondaryButton";
 import AsyncStorage from "@react-native-async-storage/async-storage"; // 👈 Add this import
 import axios from "axios";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  Alert,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  ScrollView,
+} from "react-native";
 import Svg, { Path } from "react-native-svg";
 const LoginScreen = ({ navigation }: any) => {
   const [email, setEmail] = useState("");
@@ -22,41 +28,66 @@ const LoginScreen = ({ navigation }: any) => {
 
     setLoading(true);
     try {
-      const res = await axios.post(
+      const loginRes = await axios.post(
         "https://yemi.store/api/v2/seller/auth/login",
         { email, password },
         {
           headers: {
-            Accept: "application/json", // some APIs need this
+            Accept: "application/json",
             "Content-Type": "application/json",
           },
         }
       );
-      console.log("Login response:", res.data); // 🔍 check what comes back
-      // ✅ Store token
-      const token = res.data?.token || res.data?.access_token;
-      if (token) {
-        await AsyncStorage.setItem("seller_token", token);
-        console.log("✅ Token saved successfully:", token);
-      } else {
-        console.log("⚠️ No token found in login response");
-      }
+
+      console.log("Login response:", loginRes.data);
+
+      // ✅ Extract token
+      const token = loginRes.data?.token || loginRes.data?.access_token;
+      if (!token) throw new Error("No token received from server");
+
+      // ✅ Save token
+      await AsyncStorage.setItem("seller_token", token);
+      console.log("✅ Token saved successfully:", token);
+
+      // ✅ Optionally fetch user profile
+      const profileRes = await axios.get(
+        "https://yemi.store/api/v2/seller/seller-info",
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      const user = profileRes.data;
+      const safeUserData = {
+        id: user.id,
+        f_name: user.f_name,
+        l_name: user.l_name,
+        email: user.email,
+        phone: user.phone,
+        image: user.image_full_url?.path || null,
+        token: token,
+        status: user.status,
+      };
+
+      await AsyncStorage.setItem(
+        "seller_profile",
+        JSON.stringify(safeUserData)
+      );
+      // await AsyncStorage.setItem(
+      //   "seller_profile",
+      //   JSON.stringify(profileRes.data)
+      // );
+      console.log("👤 User profile saved:", safeUserData);
 
       Alert.alert("Success", "Login successful!");
-      router.replace("/(tabs)");
+      router.replace("/(tabs)"); // Navigate to main tabs
     } catch (error: any) {
       console.log(
         "🔴 Login error full:",
-        JSON.stringify(error.response?.data, null, 2)
+        error.response?.data || error.message
       );
-      console.log("🔴 Status:", error.response?.status);
-      console.log("🔴 Headers:", error.response?.headers);
       Alert.alert(
         "Login Failed",
         error.response?.data?.message ?? "Invalid credentials"
       );
-
-      // Alert.alert("Error", err.msg);
     } finally {
       setLoading(false);
     }
@@ -94,23 +125,24 @@ const LoginScreen = ({ navigation }: any) => {
           style={styles.heartIcon}
         />
       </View>
-      <View style={styles.inputview}>
-        {/* Email Field */}
-        <LoginField
-          // label="Email"
-          placeholder="Enter Email"
-          value={email}
-          onChangeText={setEmail}
-        />
-        {/* Password Field */}
-      </View>
-      <View style={styles.inputview}>
-        <LoginField
-          placeholder=" Enter Password"
-          value={password}
-          onChangeText={setPassord}
-        />
-      </View>
+
+      {/* Email Field */}
+      <LoginField
+        // label="Email"
+        placeholder="Enter Email"
+        value={email}
+        onChangeText={setEmail}
+      />
+
+      {/* Password Field */}
+
+      <LoginField
+        placeholder=" Enter Password"
+        value={password}
+        onChangeText={setPassord}
+        secureTextEntry
+      />
+
       <Pressable
         onPress={() => {
           router.push("/recoverpassword"); // 👈 Navigate to Forgot Password screen
@@ -119,13 +151,13 @@ const LoginScreen = ({ navigation }: any) => {
         <Text style={styles.forgotPasswordtext}>Forgot Password</Text>
       </Pressable>
 
-      <View style={styles.mainview}>
-        <PrimaryButton title="Next" onPress={handleLogin} />
-
-        <SecoundryButton
+      <View style={styles.buttonRow}>
+        <PrimaryButton
           title="Cancel"
           onPress={() => router.back()}
+          variant="outline"
         />
+        <PrimaryButton title="Log IN" onPress={handleLogin} variant="primary" />
       </View>
 
       <View style={styles.bottomShape}></View>
@@ -138,7 +170,7 @@ export default LoginScreen;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: "center",
+    // justifyContent: "center",
     paddingHorizontal: 16,
     backgroundColor: "white",
   },
@@ -172,7 +204,7 @@ const styles = StyleSheet.create({
     fontWeight: 700,
     color: "#202020",
     marginBottom: 20,
-    marginTop: 100,
+    marginTop: 200,
   },
   inputview: {
     backgroundColor: "#eee",
@@ -204,18 +236,25 @@ const styles = StyleSheet.create({
 
   bottomShape: {
     position: "absolute",
-    bottom: -20, // push more downward so button is fully on top
+    bottom: -20,
     right: -60,
     width: 300,
     height: 200,
     backgroundColor: "#DCE6FF",
     borderTopLeftRadius: 200,
-    zIndex: 0, // stay in background
+    zIndex: -1, // ✅ behind all content
   },
+
   forgotPasswordtext: {
     alignSelf: "flex-end",
     marginBottom: 20,
     color: "#FA8232",
     fontSize: 15,
+  },
+  buttonRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 10,
+    marginTop: 20,
   },
 });

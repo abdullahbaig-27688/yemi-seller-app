@@ -1,30 +1,41 @@
 import React from "react";
 import { StyleSheet, View, Text, TextInput } from "react-native";
+
 type Props = {
   label?: string;
   value: string;
   onChangeText: (text: string) => void;
   placeholder?: string;
   multiline?: boolean;
+  numberOfLines?: number;
   inputStyle?: object;
 };
-const input = ({ label, value, onChangeText, placeholder }: Props) => {
+
+const Input = ({
+  label,
+  value,
+  onChangeText,
+  placeholder,
+  multiline = false,
+  numberOfLines = 1,
+  inputStyle,
+}: Props) => {
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>{label}</Text>
+      {label && <Text style={styles.label}>{label}</Text>}
       <TextInput
-        style={styles.input}
+        style={[styles.input, inputStyle, multiline && { textAlignVertical: "top" }]}
         value={value}
         onChangeText={onChangeText}
-        multiline
-        // style={inputStyle}
         placeholder={placeholder}
+        multiline={multiline}
+        numberOfLines={numberOfLines}
       />
     </View>
   );
 };
 
-export default input;
+export default Input;
 
 const styles = StyleSheet.create({
   container: {
@@ -42,6 +53,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
-    backgroundColor: "#FFD2B4",
+    // backgroundColor: "#FFD2B4",
   },
 });

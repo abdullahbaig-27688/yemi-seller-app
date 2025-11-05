@@ -12,12 +12,21 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: "black",
+        tabBarActiveTintColor: "white",
         tabBarInactiveTintColor: "black",
+
         tabBarStyle: {
-          backgroundColor: "#fff",
+          backgroundColor: "#FA8232",
           borderTopWidth: 0,
+          borderTopLeftRadius: 20, // rounded top left
+          borderTopRightRadius: 20, // rounded top right
+          height: 70, // increase height of tab bar
           elevation: 0,
+          overflow: "hidden", // ensure child content respects border radius
+          position: "absolute", // remove any default background overlap
+          left: 0,
+          right: 0,
+          bottom: 0,
         },
         headerShown: false,
         tabBarButton: HapticTab,
@@ -33,11 +42,11 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="inventory"
+        name="myProducts"
         options={{
           title: "Products",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="cart-outline" size={size} color={color} />
+            <Ionicons name="bag-outline" size={size} color={color} />
           ),
         }}
       />
@@ -45,8 +54,28 @@ export default function TabLayout() {
         name="addProduct"
         options={{
           title: "Add Product",
+          href: null,
+          // tabBarIcon: ({ color, size }) => (
+          //   <Ionicons name="add-circle-outline" size={size} color={color} />
+          // ),
+        }}
+      />
+      <Tabs.Screen
+        name="editProduct"
+        options={{
+          title: "Edit Product",
+          href: null,
+          // tabBarIcon: ({ color, size }) => (
+          //   <Ionicons name="add-circle-outline" size={size} color={color} />
+          // ),
+        }}
+      />
+      <Tabs.Screen
+        name="refunds"
+        options={{
+          title: "Refund",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="add-circle-outline" size={size} color={color} />
+            <Ionicons name="refresh-outline" size={size} color={color} />
           ),
         }}
       />
@@ -60,7 +89,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="Account"
+        name="profile"
         options={{
           title: "Account",
           tabBarIcon: ({ color, size }) => (
