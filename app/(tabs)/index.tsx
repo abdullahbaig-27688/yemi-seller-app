@@ -6,7 +6,9 @@ import {
   StyleSheet,
   FlatList,
   Image,
+  Pressable,
 } from "react-native";
+import { router, Router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import HomeHeader from "@/components/Header";
@@ -27,7 +29,7 @@ const icons = {
   alreadyWithdrawn: require("@/assets/images/icons/aw.png"),
   delieveryCharges: require("@/assets/images/icons/tdce.png"),
   taxGiven: require("@/assets/images/icons/ttg.png"),
-  collectedCash: require("@/assets/images/icons/cc.png")
+  collectedCash: require("@/assets/images/icons/cc.png"),
 };
 
 const recentOrders = [
@@ -42,9 +44,10 @@ const statusCards = [
   { id: "3", title: "Packaging", status: "10", icon: icons.packaging },
   { id: "4", title: "Out for Delivery", status: "5", icon: icons.delivery },
   { id: "5", title: "Delivered", status: "30", icon: icons.deliverd },
-  { id: "6", title: "Cancelled", status: "40", icon: icons.cancelled },
-  { id: "7", title: "Returned", status: "5", icon: icons.returned },
-  { id: "8", title: "Failed to Deliver", status: "0", icon: icons.failed },
+  { id: "6", title: "Returned", status: "5", icon: icons.returned },
+  { id: "7", title: "Failed to Deliver", status: "0", icon: icons.failed },
+
+  { id: "8", title: "Cancelled", status: "40", icon: icons.cancelled },
 ];
 
 const quickActions = [
@@ -88,7 +91,7 @@ const quickActions = [
     title: "Collected Cash",
     ammount: "500$",
     // icon: "pricetag-outline",
-    icon:icons.collectedCash
+    icon: icons.collectedCash,
   },
   // { id: "7", title: "View Analytics" },
   // { id: "8", title: "View Analytics" },
@@ -118,20 +121,28 @@ const gradients = [
 
 const HomeScreen = () => {
   const [displayName, setDisplayName] = useState("");
+  const [loading, setLoading] = useState(true);
   useEffect(() => {
     const fetchUser = async () => {
       try {
         const userData = await AsyncStorage.getItem("user");
-        console.log("📦 Stored User Data:", userData); // 👈 see what’s inside
+        console.log("📦 Stored User Data:", userData);
         if (userData) {
           const parsedUser = JSON.parse(userData);
-          console.log("✅ Parsed User:", parsedUser);
-          setDisplayName(parsedUser?.name || parsedUser?.username || "Vendor");
+          setDisplayName(
+            parsedUser?.name ||
+              parsedUser?.username ||
+              parsedUser?.email ||
+              "Vendor"
+          );
         } else {
-          console.log("❌ No user found in AsyncStorage");
+          setDisplayName("Vendor");
         }
       } catch (err) {
-        console.log("⚠️ Error loading user:", err);
+        console.error("⚠️ Error loading user:", err);
+        setDisplayName("Vendor");
+      } finally {
+        setLoading(false);
       }
     };
     fetchUser();
@@ -140,11 +151,12 @@ const HomeScreen = () => {
     <SafeAreaView style={styles.container}>
       <HomeHeader title="Dashboard" />
       <ScrollView
-      showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={false}
         style={styles.content}
         contentContainerStyle={{ paddingBottom: "30%" }}
       >
         <Text style={styles.greeting}>Hello, {displayName}</Text>
+        <Text>Track and analyze your business performance with powerful insights and statistics..</Text>
 
         {/* Order Status Cards */}
         <Text style={styles.sectionTitle}>Order Status</Text>
@@ -153,29 +165,46 @@ const HomeScreen = () => {
           keyExtractor={(item) => item.id}
           numColumns={2}
           renderItem={({ item, index }) => (
-            <LinearGradient
-              colors={gradients[index % gradients.length]}
-              style={styles.statusCard}
+            <Pressable
+              onPress={() => {
+                if (item.title === "Pending")
+                  router.navigate("/(tabs)/pendingOrder");
+                else if (item.title === "Confirmed")
+                  router.navigate("/(tabs)/confirmedOrder");
+                else if (item.title === "Packaging")
+                  router.navigate("/(tabs)/packagingOrder");
+                else if (item.title === "Out for Delivery")
+                  router.navigate("/(tabs)/deliveryOrder");
+                else if (item.title === "Delivered")
+                  router.navigate("/(tabs)/deliveredOrder");
+                else if (item.title === "Returned")
+                  router.navigate("/(tabs)/returnedOrder");
+                else if (item.title === "Failed to Deliver")
+                  router.navigate("/(tabs)/failedOrder");
+                else if (item.title === "Cancelled")
+                  router.navigate("/cancelledOrder");
+                else alert(`No screen set for ${item.title}`);
+              }}
+              activeOpacity={0.8}
+              style={{ flex: 1 }}
             >
-              {/* <Ionicons
-                name={item.icon}
-                size={26}
-                color="#FA8232"
-                style={{ marginBottom: 6 }}
-              /> */}
-              <Image
-                source={item.icon}
-                style={{
-                  width: 30,
-                  height: 30,
-                  marginBottom: 6,
-                  resizeMode: "contain",
-                }}
-              />
-
-              <Text style={styles.statusText}>{item.title}</Text>
-              <Text style={styles.statusAmmount}>{item.status}</Text>
-            </LinearGradient>
+              <LinearGradient
+                colors={gradients[index % gradients.length]}
+                style={styles.statusCard}
+              >
+                <Image
+                  source={item.icon}
+                  style={{
+                    width: 30,
+                    height: 30,
+                    marginBottom: 6,
+                    resizeMode: "contain",
+                  }}
+                />
+                <Text style={styles.statusText}>{item.title}</Text>
+                {/* <Text style={styles.statusAmmount}>{item.status}</Text> */}
+              </LinearGradient>
+            </Pressable>
           )}
           columnWrapperStyle={{
             justifyContent: "space-between",

@@ -1,9 +1,9 @@
 import ProductsHeader from "@/components/Header";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import axios from "axios";
-import { router, useFocusEffect } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import React, { useCallback, useState } from "react";
+import { SearchParams } from "expo-router";
 import {
   ActivityIndicator,
   Alert,
@@ -17,6 +17,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useSearchParams } from "expo-router/build/hooks";
 
 const MyProducts = () => {
   const [products, setProducts] = useState<any[]>([]);
@@ -24,17 +25,11 @@ const MyProducts = () => {
   const [filter, setFilter] = useState("All");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-
-  // Fetch products every time screen comes into focus
-  useFocusEffect(
-    useCallback(() => {
-      console.log("📱 Screen focused - fetching products...");
-      fetchProducts();
-      return () => {
-        console.log("📱 Screen unfocused");
-      };
-    }, [])
-  );
+  const router = useRouter();
+  const params = useSearchParams();
+  const updatedProductParam =
+    (params as any).updatedProduct ??
+    (params as URLSearchParams).get?.("updatedProduct");
 
   // const fetchProducts = async (isRefreshing = false) => {
   //   if (!isRefreshing) setLoading(true);
@@ -45,29 +40,48 @@ const MyProducts = () => {
   //       return;
   //     }
 
-  //     console.log("🔄 Fetching products from API...");
-  //     const response = await axios.get(
-  //       "https://yemi.store/api/v2/seller/products/list",
-  //       {
-  //         headers: {
-  //           Authorization: `Bearer ${token}`,
-  //           Accept: "application/json",
-  //         },
-  //       }
-  //     );
+  //     console.log("🔄 Fetching products from API with filters...");
 
-  //     console.log("✅ Products fetched:", response.data);
+  //     // Build query params
+  //     const params = new URLSearchParams();
+  //     if (searchQuery) params.append("search", searchQuery);
+  //     if (filter && filter !== "All") {
+  //       if (filter === "Active") params.append("status", "1");
+  //       if (filter === "Draft") params.append("status", "0");
+  //       if (filter === "Out of Stock") params.append("stock", "0");
+  //     }
 
-  //     // Use the correct array
-  //     const productsArray = Array.isArray(response.data)
-  //       ? response.data
-  //       : response.data.products || [];
+  //     const url = `https://yemi.store/api/v2/seller/products/list?${params.toString()}`;
+  //     const res = await fetch(url, {
+  //       method: "GET",
+  //       headers: {
+  //         Authorization: `Bearer ${token}`,
+  //         Accept: "application/json",
+  //       },
+  //     });
 
+  //     if (!res.ok) {
+  //       const errData = await res.json();
+  //       console.error("❌ Fetch failed:", errData);
+  //       Alert.alert("Error", "Failed to fetch products");
+  //       setLoading(false);
+  //       setRefreshing(false);
+  //       return;
+  //     }
+
+  //     const data = await res.json();
+  //     let productsArray: any[] = [];
+  //     if (Array.isArray(data)) {
+  //       productsArray = data;
+  //     } else if (Array.isArray(data.products)) {
+  //       productsArray = data.products;
+  //     } else if (Array.isArray(data.products?.data)) {
+  //       productsArray = data.products.data;
+  //     }
   //     console.log("✅ Products fetched:", productsArray.length);
   //     setProducts(productsArray);
-  //     // setProducts(Array.isArray(response.data) ? response.data : []);
-  //   } catch (error) {
-  //     console.log("❌ Error fetching products:", error);
+  //   } catch (error: any) {
+  //     console.log("❌ Error fetching products:", error.message);
   //     Alert.alert("Error", "Failed to fetch products");
   //   } finally {
   //     setLoading(false);
@@ -75,7 +89,112 @@ const MyProducts = () => {
   //   }
   // };
 
-  const fetchProducts = async (isRefreshing = false) => {
+  // // useFocusEffect(
+  // //   useCallback(() => {
+  // //     if (updatedProductParam) {
+  // //       const updatedProduct = JSON.parse(updatedProductParam);
+
+  // //       setProducts((prev) =>
+  // //         prev.map((p) => (p.id === updatedProduct.id ? updatedProduct : p))
+  // //       );
+
+  // //       // Optionally, clear the param (depends on your routing setup)
+  // //       router.replace(router.pathname, {});
+  // //     }
+  // //   }, [updatedProductParam])
+  // // );
+
+  // useFocusEffect(
+  //   useCallback(() => {
+  //     fetchProducts();
+  //   }, [searchQuery, filter])
+  // );
+
+  // const onRefresh = () => {
+  //   setRefreshing(true);
+  //   fetchProducts(true);
+  // };
+
+  // const fetchProducts = async (
+  //   isRefreshing = false,
+  //   updatedProductParam: any = null
+  // ) => {
+  //   if (!isRefreshing) setLoading(true);
+  //   try {
+  //     const token = await AsyncStorage.getItem("seller_token");
+  //     if (!token) {
+  //       setLoading(false);
+  //       return;
+  //     }
+
+  //     console.log("🔄 Fetching products from API with filters...");
+
+  //     // Build query params
+  //     const params = new URLSearchParams();
+  //     if (searchQuery) params.append("search", searchQuery);
+  //     if (filter && filter !== "All") {
+  //       if (filter === "Active") params.append("status", "1");
+  //       if (filter === "Draft") params.append("status", "0");
+  //       if (filter === "Out of Stock") params.append("stock", "0");
+  //     }
+
+  //     const url = `https://yemi.store/api/v2/seller/products/list?${params.toString()}`;
+  //     const res = await fetch(url, {
+  //       method: "GET",
+  //       headers: {
+  //         Authorization: `Bearer ${token}`,
+  //         Accept: "application/json",
+  //       },
+  //     });
+
+  //     if (!res.ok) {
+  //       const errData = await res.json();
+  //       console.error("❌ Fetch failed:", errData);
+  //       Alert.alert("Error", "Failed to fetch products");
+  //       setLoading(false);
+  //       setRefreshing(false);
+  //       return;
+  //     }
+
+  //     const data = await res.json();
+  //     let productsArray: any[] = [];
+  //     if (Array.isArray(data)) {
+  //       productsArray = data;
+  //     } else if (Array.isArray(data.products)) {
+  //       productsArray = data.products;
+  //     } else if (Array.isArray(data.products?.data)) {
+  //       productsArray = data.products.data;
+  //     }
+
+  //     console.log("✅ Products fetched:", productsArray.length);
+
+  //     // Merge updated product if provided
+  //     if (updatedProductParam) {
+  //       const updatedProduct = JSON.parse(updatedProductParam);
+  //       const idx = productsArray.findIndex((p) => p.id === updatedProduct.id);
+
+  //       if (idx > -1) {
+  //         productsArray[idx] = updatedProduct; // Replace existing
+  //       } else {
+  //         productsArray.unshift(updatedProduct); // Add if not in list
+  //       }
+  //       console.log("🔄 Merged updated product:", updatedProduct.id);
+  //     }
+
+  //     setProducts(productsArray);
+  //   } catch (error: any) {
+  //     console.log("❌ Error fetching products:", error.message);
+  //     Alert.alert("Error", "Failed to fetch products");
+  //   } finally {
+  //     setLoading(false);
+  //     setRefreshing(false);
+  //   }
+  // };
+
+  const fetchProducts = async (
+    isRefreshing = false,
+    updatedProductParam: any = null
+  ) => {
     if (!isRefreshing) setLoading(true);
     try {
       const token = await AsyncStorage.getItem("seller_token");
@@ -84,37 +203,71 @@ const MyProducts = () => {
         return;
       }
 
-      console.log("🔄 Fetching products from API...");
+      console.log("🔄 Fetching products from API with filters...");
 
-      const response = await axios.get(
-        "https://yemi.store/api/v2/seller/products/list",
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            Accept: "application/json",
-          },
-        }
-      );
-
-      console.log("Full API response:", response.data);
-      // Check where the products array is
-      let productsArray: any[] = [];
-
-      if (Array.isArray(response.data)) {
-        productsArray = response.data;
-      } else if (Array.isArray(response.data.products)) {
-        productsArray = response.data.products;
-      } else if (Array.isArray(response.data.products?.data)) {
-        productsArray = response.data.products.data;
-      } else {
-        productsArray = [];
+      const params = new URLSearchParams();
+      if (searchQuery) params.append("search", searchQuery);
+      if (filter && filter !== "All") {
+        if (filter === "Active") params.append("status", "1");
+        if (filter === "Draft") params.append("status", "0");
+        if (filter === "Out of Stock") params.append("stock", "0");
       }
 
-      console.log("✅ Products extracted:", productsArray.length);
+      const url = `https://yemi.store/api/v2/seller/products/list?${params.toString()}`;
+      const res = await fetch(url, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+        },
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        console.error("❌ Fetch failed:", errData);
+        Alert.alert("Error", "Failed to fetch products");
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+
+      const data = await res.json();
+      let productsArray: any[] = [];
+      if (Array.isArray(data)) productsArray = data;
+      else if (Array.isArray(data.products)) productsArray = data.products;
+      else if (Array.isArray(data.products?.data))
+        productsArray = data.products.data;
+
+      console.log("✅ Products fetched:", productsArray.length);
+
+      // Merge updated product safely
+      if (updatedProductParam) {
+        let updatedProduct;
+        try {
+          updatedProduct =
+            typeof updatedProductParam === "string"
+              ? JSON.parse(updatedProductParam)
+              : updatedProductParam;
+        } catch (err) {
+          console.warn("⚠️ Failed to parse updatedProductParam:", err);
+        }
+
+        if (updatedProduct) {
+          const idx = productsArray.findIndex(
+            (p) => p.id === updatedProduct.id
+          );
+          if (idx > -1) productsArray[idx] = updatedProduct;
+          else productsArray.unshift(updatedProduct);
+          console.log("🔄 Merged updated product:", updatedProduct.id);
+
+          // Optional: clear param so it doesn't merge repeatedly
+          router.replace(router.pathname, {});
+        }
+      }
 
       setProducts(productsArray);
-    } catch (error) {
-      console.log("❌ Error fetching products:", error);
+    } catch (error: any) {
+      console.log("❌ Error fetching products:", error.message);
       Alert.alert("Error", "Failed to fetch products");
     } finally {
       setLoading(false);
@@ -122,9 +275,16 @@ const MyProducts = () => {
     }
   };
 
+  // Use focus effect
+  useFocusEffect(
+    useCallback(() => {
+      fetchProducts(false, updatedProductParam);
+    }, [searchQuery, filter, updatedProductParam])
+  );
+
   const onRefresh = () => {
     setRefreshing(true);
-    fetchProducts(true);
+    fetchProducts(true, updatedProductParam);
   };
 
   const handleDeleteProduct = async (productId: number) => {
@@ -141,16 +301,24 @@ const MyProducts = () => {
           style: "destructive",
           onPress: async () => {
             try {
-              await axios.delete(
+              const res = await fetch(
                 `https://yemi.store/api/v2/seller/products/delete/${productId}`,
                 {
+                  method: "DELETE",
                   headers: {
                     Authorization: `Bearer ${token}`,
                     Accept: "application/json",
                   },
                 }
               );
-              // Remove from local state
+
+              if (!res.ok) {
+                const errData = await res.json();
+                console.error("❌ Delete failed:", errData);
+                Alert.alert("Error", "Failed to delete product.");
+                return;
+              }
+
               setProducts((prev) =>
                 prev.filter((item) => item.id !== productId)
               );
@@ -164,21 +332,6 @@ const MyProducts = () => {
       ]
     );
   };
-
-  // Filter products
-  const filteredProducts = products.filter((item) => {
-    const matchesSearch = item.name
-      ?.toLowerCase()
-      .includes(searchQuery.toLowerCase());
-    if (filter === "All") return matchesSearch;
-    if (filter === "Active")
-      return matchesSearch && item.current_stock > 0 && item.status === 1;
-    if (filter === "Draft")
-      return matchesSearch && (item.status === 0 || item.published === 0);
-    if (filter === "Out of Stock")
-      return matchesSearch && item.current_stock === 0;
-    return matchesSearch;
-  });
 
   const renderStatusLabel = (item: any) => {
     if (item.status === 0 || item.published === 0)
@@ -227,18 +380,15 @@ const MyProducts = () => {
   };
 
   const getProductImage = (item: any) => {
-    // Try thumbnail_full_url first
     if (item.thumbnail_full_url?.status === 200 && item.thumbnail_full_url.path)
       return { uri: item.thumbnail_full_url.path };
 
-    // Try images_full_url
     if (
       item.images_full_url?.[0]?.status === 200 &&
       item.images_full_url[0].path
     )
       return { uri: item.images_full_url[0].path };
 
-    // Parse and try images JSON string
     let images: string[] = [];
     if (item.images) {
       try {
@@ -256,7 +406,6 @@ const MyProducts = () => {
         uri: `https://yemi.store/storage/app/public/product/${images[0].trim()}`,
       };
 
-    // Return undefined for no image (will show broken image icon)
     return undefined;
   };
 
@@ -332,15 +481,9 @@ const MyProducts = () => {
               <Text style={styles.addButtonText}>Add Your First Product</Text>
             </Pressable>
           </View>
-        ) : filteredProducts.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>
-              No products found for this filter.
-            </Text>
-          </View>
         ) : (
           <FlatList
-            data={filteredProducts}
+            data={products}
             keyExtractor={(item) =>
               item.id?.toString() || Math.random().toString()
             }
@@ -372,19 +515,19 @@ const MyProducts = () => {
                   {renderStatusLabel(item)}
                 </View>
                 <View style={styles.buttonContainer}>
+                  {/* This is edit icon */}
                   <Pressable
-                    onPress={() => {
-                      console.log("🔧 Navigating to edit product:", item.id);
+                    onPress={() =>
                       router.push({
                         pathname: "/editProduct",
-                        params: { id: item.id.toString() },
-                      });
-                    }}
+                        params: { productId: item.id.toString() },
+                      })
+                    }
                     style={styles.editButton}
                   >
                     <Ionicons name="pencil" size={16} color="#fff" />
                   </Pressable>
-
+                  {/* This is delete icon  */}
                   <Pressable
                     onPress={() => handleDeleteProduct(item.id)}
                     style={styles.deleteButton}
@@ -406,16 +549,8 @@ export default MyProducts;
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
   content: { flex: 1, padding: 20 },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: "#888",
-  },
+  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
+  loadingText: { marginTop: 10, fontSize: 16, color: "#888" },
   searchInput: {
     backgroundColor: "#f1f1f1",
     padding: 12,
@@ -460,27 +595,15 @@ const styles = StyleSheet.create({
     backgroundColor: "#f1f1f1",
   },
   cardContent: { flex: 1 },
-  productName: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 4,
-  },
-  productSKU: {
-    fontSize: 12,
-    color: "#888",
-    marginBottom: 2,
-  },
+  productName: { fontSize: 16, fontWeight: "600", marginBottom: 4 },
+  productSKU: { fontSize: 12, color: "#888", marginBottom: 2 },
   productPrice: {
     fontSize: 15,
     fontWeight: "700",
     marginVertical: 2,
     color: "#FA8232",
   },
-  productStock: {
-    fontSize: 12,
-    color: "#666",
-    marginBottom: 4,
-  },
+  productStock: { fontSize: 12, color: "#666", marginBottom: 4 },
   statusLabel: {
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -517,11 +640,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     fontSize: 15,
   },
-  buttonContainer: {
-    flexDirection: "column",
-    alignItems: "center",
-    gap: 8,
-  },
+  buttonContainer: { flexDirection: "column", alignItems: "center", gap: 8 },
   editButton: {
     backgroundColor: "#2d98da",
     padding: 8,

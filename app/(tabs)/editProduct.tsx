@@ -1,54 +1,75 @@
-import AddProductHeader from "@/components/Header";
-import ImagePickerBox from "@/components/imagePickerBox";
-import Input from "@/components/input";
-import PrimaryButton from "@/components/primaryButton";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import axios from "axios";
-
-import * as ImagePicker from "expo-image-picker";
-import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   ScrollView,
   StyleSheet,
   Text,
   View,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import * as ImagePicker from "expo-image-picker";
+import * as FileSystem from "expo-file-system/legacy";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Picker } from "@react-native-picker/picker";
+import AddProductHeader from "@/components/Header";
+import ImagePickerBox from "@/components/imagePickerBox";
+import Input from "@/components/input";
+import PrimaryButton from "@/components/primaryButton";
+import { router, useLocalSearchParams } from "expo-router";
+
+interface Product {
+  id?: number;
+  name: string;
+  description: string;
+  category_id?: string;
+  sub_category_id?: string;
+  sub_sub_category_id?: string;
+  brand_id?: string;
+  product_type: string;
+  code?: string;
+  unit_price?: string;
+  minimum_order_qty?: string;
+  current_stock?: string;
+  discount_type?: string;
+  discount?: string;
+  tax?: string;
+  purchase_price?: string;
+  shipping_cost?: string;
+  unit?: string;
+  published?: string;
+  thumbnail?: any;
+  images?: any[];
+}
 
 const EditProduct = () => {
-  const { id } = useLocalSearchParams();
-  console.log("🆔 Product ID received:", id);
-  const [product, setProduct] = useState<any>(null);
+  const { productId } = useLocalSearchParams(); // if editing
+  const [product, setProduct] = useState<Product>({
+    name: "",
+    description: "",
+    product_type: "physical",
+    minimum_order_qty: "1",
+    current_stock: "0",
+    discount_type: "percent",
+    discount: "0",
+    tax: "0",
+    unit: "100",
+    shipping_cost: "0",
+  });
 
-  // ------------------ Form State ------------------
-  const [loading, setLoading] = useState(true);
-  const [updating, setUpdating] = useState(false);
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [categoryId, setCategoryId] = useState("");
+  const [categories, setCategories] = useState<any[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState("");
   const [subCategoryId, setSubCategoryId] = useState("");
   const [subSubCategoryId, setSubSubCategoryId] = useState("");
+  const [brands, setBrands] = useState<any[]>([]);
   const [brandId, setBrandId] = useState("");
-  const [productType, setProductType] = useState("physical");
-  const [code, setCode] = useState("");
-  const [unitPrice, setUnitPrice] = useState("");
-  const [minimumOrderQty, setMinimumOrderQty] = useState("1");
-  const [currentStock, setCurrentStock] = useState("");
-  const [discountType, setDiscountType] = useState("percent");
-  const [discount, setDiscount] = useState("");
-  const [tax, setTax] = useState("");
-  const [shippingCost, setShippingCost] = useState("");
-  const [unit, setUnit] = useState("100");
-  const [purchasePrice, setPurchasePrice] = useState("");
   const [thumbnail, setThumbnail] = useState<any>(null);
   const [images, setImages] = useState<any[]>([]);
+  const [taxCalculation, setTaxCalculation] = useState("");
 
   // ------------------ Permissions ------------------
   useEffect(() => {
-    const requestPermissions = async () => {
+    (async () => {
       const { status } =
         await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== "granted") {
@@ -57,324 +78,212 @@ const EditProduct = () => {
           "Please allow access to your media library"
         );
       }
-    };
-    requestPermissions();
+    })();
   }, []);
 
-  // ------------------ Fetch Product ------------------
+  // ------------------ Fetch Categories & Brands ------------------
   useEffect(() => {
-    const fetchProduct = async () => {
-      setLoading(true);
+    fetch("https://yemi.store/api/v1/categories")
+      .then((res) => res.json())
+      .then((data) => setCategories(data))
+      .catch((err) => console.error("Error fetching categories:", err));
+
+    const fetchBrands = async () => {
       try {
-        const token = await AsyncStorage.getItem("seller_token");
-        console.log("1️⃣ Token exists:", !!token);
-
-        if (!id) {
-          Alert.alert("Error", "Missing product ID.");
-          setLoading(false);
-          return;
-        }
-
-        console.log("2️⃣ Fetching product ID:", id);
-
-        const res = await axios.get(
-          `https://yemi.store/api/v2/seller/products/edit/${id}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        console.log("3️⃣ Response received:", res.status);
-        console.log("4️⃣ Response data:", JSON.stringify(res.data, null, 2));
-
-        const productData = res.data;
-
-        if (productData) {
-          console.log("5️⃣ Setting product fields...");
-          setProduct(productData);
-
-          // Set all text fields
-          setName(productData.name || "");
-          setDescription(productData.details || "");
-
-          // Handle category_ids array structure
-          const categoryIds = productData.category_ids || [];
-          setCategoryId(categoryIds[0]?.id || "1");
-          setSubCategoryId(categoryIds[1]?.id || "1");
-          setSubSubCategoryId(categoryIds[2]?.id || "1");
-
-          setBrandId(productData.brand_id?.toString() || "1");
-          setProductType(productData.product_type || "physical");
-          setCode(productData.code || "");
-          setUnitPrice(productData.unit_price?.toString() || "");
-          setMinimumOrderQty(productData.min_qty?.toString() || "1");
-          setCurrentStock(productData.current_stock?.toString() || "");
-          setDiscountType(productData.discount_type || "percent");
-          setDiscount(productData.discount?.toString() || "");
-          setTax(productData.tax?.toString() || "");
-          setShippingCost(productData.shipping_cost?.toString() || "");
-          setPurchasePrice(productData.purchase_price?.toString() || "");
-          setUnit(productData.unit?.toString() || "100");
-
-          console.log("6️⃣ Text fields set. Name:", productData.name);
-
-          // Handle thumbnail
-          if (
-            productData.thumbnail_full_url?.path &&
-            productData.thumbnail_full_url?.status === 200
-          ) {
-            console.log(
-              "7️⃣ Setting thumbnail from full URL:",
-              productData.thumbnail_full_url.path
-            );
-            setThumbnail({ uri: productData.thumbnail_full_url.path });
-          } else if (
-            productData.thumbnail &&
-            productData.thumbnail !== "/tmp/phpVP8C10"
-          ) {
-            console.log(
-              "7️⃣ Setting thumbnail from relative path:",
-              productData.thumbnail
-            );
-            setThumbnail({
-              uri: `https://yemi.store/storage/app/public/${productData.thumbnail}`,
-            });
-          } else {
-            console.log("7️⃣ No valid thumbnail found");
-          }
-
-          // Handle images
-          if (
-            productData.images_full_url &&
-            productData.images_full_url.length > 0
-          ) {
-            const validImages = productData.images_full_url.filter(
-              (img: any) => img.path && img.status === 200
-            );
-
-            if (validImages.length > 0) {
-              console.log(
-                "8️⃣ Setting images from full URLs:",
-                validImages.length
-              );
-              setImages(
-                validImages.map((img: any, i: number) => ({
-                  uri: img.path,
-                  type: "image/jpeg",
-                  name: `existing_image_${i}.jpg`,
-                }))
-              );
-            } else {
-              console.log("8️⃣ No valid images with status 200");
-            }
-          } else if (productData.images) {
-            try {
-              const imageArray = JSON.parse(productData.images);
-              const validImagePaths = imageArray.filter(
-                (img: string) => img && img.trim() !== ""
-              );
-
-              if (validImagePaths.length > 0) {
-                console.log("8️⃣ Setting images from parsed JSON");
-                setImages(
-                  validImagePaths.map((img: string, i: number) => ({
-                    uri: `https://yemi.store/storage/app/public/product/${img.trim()}`,
-                    type: "image/jpeg",
-                    name: `existing_image_${i}.jpg`,
-                  }))
-                );
-              } else {
-                console.log("8️⃣ No valid image paths in JSON");
-              }
-            } catch (e) {
-              console.log("8️⃣ Error parsing images JSON:", e);
-            }
-          } else {
-            console.log("8️⃣ No images found");
-          }
-
-          console.log("✅ Product loaded successfully");
-        } else {
-          console.log("❌ No product data in response");
-          Alert.alert("Error", "Product not found.");
-        }
-      } catch (err: any) {
-        console.error("❌ Fetch error:", err.response?.status);
-        console.error("❌ Error data:", err.response?.data || err.message);
-        Alert.alert("Error", "Failed to load product details.");
-      } finally {
-        setLoading(false);
+        const res = await fetch("https://yemi.store/api/v1/brands");
+        const data = await res.json();
+        setBrands(data.brands || []);
+      } catch (err) {
+        console.error("Failed to fetch brands:", err);
       }
     };
+    fetchBrands();
+  }, []);
 
-    if (id) fetchProduct();
-  }, [id]);
+  // ------------------ Fetch Product Data if Editing ------------------
+  useEffect(() => {
+    if (productId) {
+      const fetchProduct = async () => {
+        try {
+          const token = await AsyncStorage.getItem("seller_token");
+          if (!token) return;
 
-  // ------------------ Submit Update ------------------
-  const handleUpdateProduct = async () => {
-    if (updating) return; // Prevent double submission
+          const res = await fetch(
+            `https://yemi.store/api/v2/seller/products/edit/${productId}`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          const data = await res.json();
+          if (!res.ok) {
+            console.error("Failed to fetch product:", data);
+            return;
+          }
 
-    setUpdating(true);
+          setProduct({
+            name: data.name || "",
+            description: data.description || "",
+            product_type: data.product_type || "physical",
+            code: data.code || "",
+            unit_price: data.unit_price?.toString() || "0",
+            minimum_order_qty: data.minimum_order_qty?.toString() || "1",
+            current_stock: data.current_stock?.toString() || "0",
+            discount_type: data.discount_type || "percent",
+            discount: data.discount?.toString() || "0",
+            tax: data.tax?.toString() || "0",
+            purchase_price: data.purchase_price?.toString() || "0",
+            shipping_cost: data.shipping_cost?.toString() || "0",
+            unit: data.unit?.toString() || "100",
+          });
+
+          setSelectedCategory(data.category_id || "");
+          setSubCategoryId(data.sub_category_id || "");
+          setSubSubCategoryId(data.sub_sub_category_id || "");
+          setBrandId(data.brand_id || "");
+          setTaxCalculation(data.tax_calculation || "");
+
+          setThumbnail(data.thumbnail ? { uri: data.thumbnail } : null);
+          setImages(
+            data.images
+              ? (Array.isArray(data.images) ? data.images : [data.images]).map(
+                  (imgUrl: string) => ({ uri: imgUrl })
+                )
+              : []
+          );
+        } catch (err) {
+          console.error("Error fetching product:", err);
+        }
+      };
+      fetchProduct();
+    }
+  }, [productId]);
+
+  // ------------------ Submit Handler ------------------
+  const handleUpdateProduct = async (publish: boolean) => {
     try {
       const token = await AsyncStorage.getItem("seller_token");
       if (!token) {
         Alert.alert("Error", "Seller token not found. Please log in again.");
-        setUpdating(false);
         return;
       }
-
-      if (!product) {
-        Alert.alert("Error", "Product data not loaded yet.");
-        setUpdating(false);
-        return;
-      }
-
-      console.log("🔄 Starting product update...");
-      console.log("📝 Current form values:", {
-        name,
-        description,
-        categoryId,
-        unitPrice,
-        code,
+      // Log the product state before submission
+      console.log("🔄 Preparing to update product with data:", {
+        product,
+        selectedCategory,
+        subCategoryId,
+        subSubCategoryId,
+        brandId,
+        publish,
+        thumbnail,
+        images,
       });
-
       const formData = new FormData();
-
-      // ⚠️ IMPORTANT: Use _method for Laravel PUT with FormData
-      formData.append("_method", "PUT");
-
-      // Append required fields with actual values
-      formData.append("name", name || "");
-      formData.append("description", description || "");
-      formData.append("category_id", categoryId || "1");
-      formData.append("sub_category_id", subCategoryId || "1");
-      formData.append("sub_sub_category_id", subSubCategoryId || "1");
-      formData.append("brand_id", brandId || "1");
-      formData.append("product_type", productType || "physical");
-      formData.append("code", code || `SKU-${Date.now()}`);
-      formData.append("unit_price", unitPrice || "0");
-      formData.append("purchase_price", purchasePrice || "0");
-      formData.append("minimum_order_qty", minimumOrderQty || "1");
-      formData.append("current_stock", currentStock || "0");
-      formData.append("discount_type", discountType || "percent");
-      formData.append("discount", discount || "0");
-      formData.append("tax", tax || "0");
+      formData.append("_method", "PUT"); // Important!
+      formData.append("name", product.name);
+      formData.append("description", product.description);
+      formData.append("category_id", selectedCategory || "1");
+      formData.append("sub_category_id", subCategoryId || "");
+      formData.append("sub_sub_category_id", subSubCategoryId || "");
+      formData.append("brand_id", brandId || "");
+      formData.append("product_type", product.product_type);
+      // formData.append("code", product.code || `SKU-${Date.now()}`);
+      formData.append(
+        "code",
+        product.code ? Number(product.code).toString() : Date.now().toString()
+      );
+      formData.append("unit_price", product.unit_price || "0");
+      formData.append("minimum_order_qty", product.minimum_order_qty || "1");
+      formData.append("current_stock", product.current_stock || "0");
+      formData.append("discount_type", product.discount_type || "percent");
+      formData.append("discount", product.discount || "0");
+      formData.append("tax", product.tax || "0");
+      formData.append("tax_calculation", taxCalculation || "");
       formData.append("lang", "en");
-      formData.append("shipping_cost", shippingCost || "0");
-      formData.append("unit", unit || "100");
-        // ✅ Automatically publish product
-    formData.append("published", "1");
+      formData.append(
+        "purchase_price",
+        product.purchase_price || product.unit_price || "0"
+      );
+      formData.append("shipping_cost", product.shipping_cost || "0");
+      formData.append("unit", product.unit || "100");
+      formData.append("published", publish ? "1" : "0");
 
-      // Attach thumbnail
-      if (thumbnail?.uri && !thumbnail.uri.startsWith("https")) {
-        formData.append("thumbnail", {
-          uri: thumbnail.uri,
-          type: "image/jpeg",
-          name: "thumbnail.jpg",
-        } as any);
+      // Thumbnail
+      if (thumbnail) {
+        if (thumbnail.uri.startsWith("file://")) {
+          const fileInfo = await FileSystem.getInfoAsync(thumbnail.uri);
+          const localUri = fileInfo.exists ? fileInfo.uri : thumbnail.uri;
+          formData.append("thumbnail", {
+            uri: localUri,
+            type: thumbnail.type || "image/jpeg",
+            name: thumbnail.name || "thumbnail.jpg",
+          });
+        } else {
+          formData.append("existing_thumbnail", thumbnail.uri);
+        }
       }
 
-      // Attach new images
-      images.forEach((img, index) => {
-        if (!img.uri.startsWith("https")) {
+      // Product Images
+      for (let i = 0; i < images.length; i++) {
+        const img = images[i];
+        if (img.uri.startsWith("file://")) {
+          const fileInfo = await FileSystem.getInfoAsync(img.uri);
+          const localUri = fileInfo.exists ? fileInfo.uri : img.uri;
           formData.append("images[]", {
-            uri: img.uri,
-            type: "image/jpeg",
-            name: `product_image_${index}.jpg`,
-          } as any);
+            uri: localUri,
+            type: img.type || "image/jpeg",
+            name: img.name || `product_image_${i}.jpg`,
+          });
         }
-      });
+      }
 
-      console.log("📤 Sending update request...");
-
-      // Use POST with _method override instead of PUT
-      const response = await fetch(
-        `https://yemi.store/api/v2/seller/products/update/${id}`,
+      console.log("🔄 Sending update request to API...");
+      const res = await fetch(
+        `https://yemi.store/api/v2/seller/products/update/${productId}`,
         {
           method: "POST",
           headers: {
             Authorization: `Bearer ${token}`,
             Accept: "application/json",
-            // Don't set Content-Type for FormData, let the browser set it with boundary
           },
           body: formData,
         }
       );
 
-      const data = await response.json();
-
-      console.log("📥 Response status:", response.status);
-      console.log("📥 Response data:", data);
-
-      // Check if there are errors
-      if (data.errors && data.errors.length > 0) {
-        console.error("❌ Update failed with errors:", data.errors);
-        const errorMessages = data.errors.map((e: any) => e.message).join("\n");
-        Alert.alert("Update Failed", errorMessages);
-        setUpdating(false);
+      const data = await res.json();
+      console.log("🔄 API Response:", data);
+      if (!res.ok) {
+        console.error("❌ Upload failed:", data);
+        Alert.alert("Error", "Failed to save product.");
         return;
       }
 
-      if (!response.ok) {
-        console.error("❌ Update failed:", data);
-        Alert.alert("Error", data.message || "Failed to update product.");
-        setUpdating(false);
-        return;
-      }
-
-      console.log("✅ Product updated successfully:", data);
-      Alert.alert("Success", "Product updated successfully!", [
-        {
-          text: "OK",
-          onPress: () => {
-            console.log("🔙 Navigating back to products list...");
-            router.push("/myProducts")
-          },
-        },
-      ]);
+      Alert.alert("Success", `Product ${publish ? "published" : "saved"}!`);
+      console.log("✅ Product updated successfully!");
+      router.replace({
+        pathname: "/myProducts",
+        params: { updatedProduct: JSON.stringify(data) },
+      });
     } catch (err: any) {
-      console.error("❌ Upload error:", err.message);
-      Alert.alert("Error", "Failed to update product. Please try again.");
-    } finally {
-      setUpdating(false);
+      console.error("❌ Save product error:", err.message);
+      Alert.alert(
+        "Error",
+        "Failed to save product. Check your network or images."
+      );
     }
   };
-
-  // Show loading state
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <AddProductHeader
-          title="Edit Product"
-          leftIcon="arrow-back"
-          onLeftPress={() => router.back()}
-          rightIcon="ellipsis-vertical"
-        />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#FA8232" />
-          <Text style={styles.loadingText}>Loading product...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   return (
     <SafeAreaView style={styles.container}>
       <AddProductHeader
-        title="Edit Product"
+        title={productId ? "Edit Product" : "Add Product"}
         leftIcon="arrow-back"
         onLeftPress={() => router.back()}
-        rightIcon="ellipsis-vertical"
       />
 
       <ScrollView
         style={styles.content}
-        contentContainerStyle={{ paddingBottom: 100 }}
+        contentContainerStyle={{ paddingBottom: "30%" }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Product Info */}
+        {/* Product Information */}
         <Text style={styles.info}>Product Information</Text>
         <View style={styles.information}>
           <ImagePickerBox
@@ -383,7 +292,13 @@ const EditProduct = () => {
             onImagesChange={(uris) =>
               setThumbnail(
                 uris[0]
-                  ? { uri: uris[0], type: "image/jpeg", name: "thumbnail.jpg" }
+                  ? {
+                      uri: uris[0].startsWith("file://")
+                        ? uris[0]
+                        : `file://${uris[0]}`,
+                      type: "image/jpeg",
+                      name: "thumbnail.jpg",
+                    }
                   : null
               )
             }
@@ -394,18 +309,25 @@ const EditProduct = () => {
             onImagesChange={(uris) =>
               setImages(
                 uris.map((uri, index) => ({
-                  uri,
+                  uri: uri.startsWith("file://") ? uri : `file://${uri}`,
                   type: "image/jpeg",
                   name: `product_image_${index}.jpg`,
                 }))
               )
             }
           />
-          <Input label="Product Name" value={name} onChangeText={setName} />
+          <Input
+            label="Product Name"
+            value={product.name}
+            onChangeText={(text) => setProduct({ ...product, name: text })}
+            required
+          />
           <Input
             label="Description"
-            value={description}
-            onChangeText={setDescription}
+            value={product.description}
+            onChangeText={(text) =>
+              setProduct({ ...product, description: text })
+            }
             multiline
             inputStyle={{ textAlignVertical: "top", height: 120 }}
           />
@@ -414,28 +336,63 @@ const EditProduct = () => {
         {/* General Setup */}
         <Text style={styles.info}>General Setup</Text>
         <View style={styles.setup}>
+          <Text style={styles.inputLabel}>
+            Select Category <Text style={styles.requiredStar}>*</Text>
+          </Text>
+          <View style={styles.inputForm}>
+            <Picker
+              selectedValue={selectedCategory}
+              onValueChange={(itemValue) => setSelectedCategory(itemValue)}
+            >
+              <Picker.Item label="Select Category" value="" />
+              {categories.map((cat) => (
+                <Picker.Item key={cat.id} label={cat.name} value={cat.id} />
+              ))}
+            </Picker>
+          </View>
+
+          <Text style={styles.inputLabel}>Sub Category</Text>
           <Input
-            label="Category ID"
-            value={categoryId}
-            onChangeText={setCategoryId}
-          />
-          <Input
-            label="Sub Category ID"
             value={subCategoryId}
             onChangeText={setSubCategoryId}
+            placeholder="Enter Sub Category ID"
           />
+
+          <Text style={styles.inputLabel}>Sub Sub Category</Text>
           <Input
-            label="Sub Sub Category ID"
             value={subSubCategoryId}
             onChangeText={setSubSubCategoryId}
+            placeholder="Enter Sub Sub Category ID"
           />
-          <Input label="Brand ID" value={brandId} onChangeText={setBrandId} />
+
+          <Text style={styles.inputLabel}>Brand</Text>
+          <View style={styles.inputForm}>
+            <Picker selectedValue={brandId} onValueChange={setBrandId}>
+              <Picker.Item label="Select Brand" value="" />
+              {brands.map((b) => (
+                <Picker.Item key={b.id} label={b.name} value={b.id} />
+              ))}
+            </Picker>
+          </View>
+
+          <Text style={styles.inputLabel}>
+            Product Type <Text style={styles.requiredStar}>*</Text>
+          </Text>
+          <View style={styles.inputForm}>
+            <Picker
+              selectedValue={product.product_type}
+              onValueChange={(v) => setProduct({ ...product, product_type: v })}
+            >
+              <Picker.Item label="Physical" value="physical" />
+              <Picker.Item label="Digital" value="digital" />
+            </Picker>
+          </View>
+
           <Input
-            label="Product Type"
-            value={productType}
-            onChangeText={setProductType}
+            label="Product SKU"
+            value={product.code}
+            onChangeText={(text) => setProduct({ ...product, code: text })}
           />
-          <Input label="Product SKU" value={code} onChangeText={setCode} />
         </View>
 
         {/* Pricing & Inventory */}
@@ -443,50 +400,82 @@ const EditProduct = () => {
         <View style={styles.information}>
           <Input
             label="Unit Price"
-            value={unitPrice}
-            onChangeText={setUnitPrice}
+            value={product.unit_price}
+            onChangeText={(text) =>
+              setProduct({ ...product, unit_price: text })
+            }
             keyboardType="numeric"
           />
           <Input
             label="Minimum Order Qty"
-            value={minimumOrderQty}
-            onChangeText={setMinimumOrderQty}
+            value={product.minimum_order_qty}
+            onChangeText={(text) =>
+              setProduct({ ...product, minimum_order_qty: text })
+            }
             keyboardType="numeric"
           />
           <Input
             label="Current Stock"
-            value={currentStock}
-            onChangeText={setCurrentStock}
+            value={product.current_stock}
+            onChangeText={(text) =>
+              setProduct({ ...product, current_stock: text })
+            }
             keyboardType="numeric"
           />
-          <Input
-            label="Discount Type"
-            value={discountType}
-            onChangeText={setDiscountType}
-          />
+          <Text style={styles.inputLabel}>Discount Type</Text>
+          <View style={styles.inputForm}>
+            <Picker
+              selectedValue={product.discount_type}
+              onValueChange={(text) =>
+                setProduct({ ...product, discount_type: text })
+              }
+            >
+              <Picker.Item label="Percentage" value="percent" />
+              <Picker.Item label="Flat" value="flat" />
+            </Picker>
+          </View>
           <Input
             label="Discount Amount"
-            value={discount}
-            onChangeText={setDiscount}
+            value={product.discount}
+            onChangeText={(text) => setProduct({ ...product, discount: text })}
             keyboardType="numeric"
           />
           <Input
-            label="Tax"
-            value={tax}
-            onChangeText={setTax}
+            label="Tax (%)"
+            value={product.tax}
+            onChangeText={(text) => setProduct({ ...product, tax: text })}
             keyboardType="numeric"
           />
+          <Text style={styles.inputLabel}>Tax Calculation</Text>
+          <View style={styles.inputForm}>
+            <Picker
+              selectedValue={taxCalculation}
+              onValueChange={(v) => setTaxCalculation(v)}
+            >
+              <Picker.Item label="Select Tax Calculation" value="" />
+              <Picker.Item label="Include with Product" value="include" />
+              <Picker.Item label="Exclude with Product" value="exclude" />
+            </Picker>
+          </View>
           <Input
             label="Purchase Price"
-            value={purchasePrice}
-            onChangeText={setPurchasePrice}
+            value={product.purchase_price}
+            onChangeText={(text) =>
+              setProduct({ ...product, purchase_price: text })
+            }
             keyboardType="numeric"
           />
-          <Input label="Unit" value={unit} onChangeText={setUnit} />
+          <Input
+            label="Unit"
+            value={product.unit}
+            onChangeText={(text) => setProduct({ ...product, unit: text })}
+          />
           <Input
             label="Shipping Cost"
-            value={shippingCost}
-            onChangeText={setShippingCost}
+            value={product.shipping_cost}
+            onChangeText={(text) =>
+              setProduct({ ...product, shipping_cost: text })
+            }
             keyboardType="numeric"
           />
         </View>
@@ -494,10 +483,14 @@ const EditProduct = () => {
         {/* Buttons */}
         <View style={styles.buttonRow}>
           <PrimaryButton
-            title={updating ? "Updating..." : "Update Product"}
-            onPress={handleUpdateProduct}
+            title="Save as Draft"
+            onPress={() => handleUpdateProduct(false)}
+            variant="outline"
+          />
+          <PrimaryButton
+            title={productId ? "Update Product" : "Publish Product"}
+            onPress={() => handleUpdateProduct(true)}
             variant="primary"
-            disabled={updating}
           />
         </View>
       </ScrollView>
@@ -510,16 +503,6 @@ export default EditProduct;
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
   content: { padding: 20 },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: "#888",
-  },
   information: {
     backgroundColor: "#fff",
     borderWidth: 1,
@@ -531,20 +514,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 6,
     elevation: 4,
+    marginBottom: 15,
   },
-  info: {
-    fontSize: 24,
-    color: "#FA8232",
-    fontWeight: "500",
-    marginBottom: 16,
-    marginTop: 16,
-  },
+  info: { fontSize: 24, color: "#FA8232", fontWeight: "500", marginBottom: 16 },
   price: {
     fontSize: 24,
     color: "#FA8232",
     fontWeight: "500",
     marginBottom: 16,
-    marginTop: 16,
   },
   setup: {
     backgroundColor: "#fff",
@@ -557,9 +534,22 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 6,
     elevation: 4,
+    marginBottom: 15,
   },
+  inputLabel: { marginBottom: 5, fontSize: 15, fontWeight: "600" },
+  inputForm: {
+    borderWidth: 1,
+    borderColor: "grey",
+    borderRadius: 10,
+    marginVertical: 5,
+    backgroundColor: "#FFF",
+    overflow: "hidden",
+  },
+  requiredStar: { color: "red" },
   buttonRow: {
+    flexDirection: "row",
+    gap: 10,
+    justifyContent: "space-between",
     marginTop: 20,
-    alignItems: "center",
   },
 });

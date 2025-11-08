@@ -1,26 +1,29 @@
+import React, { useEffect, useState } from "react";
+import {
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  Platform,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import * as ImagePicker from "expo-image-picker";
+import * as FileSystem from "expo-file-system/legacy";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Picker } from "@react-native-picker/picker";
 import AddProductHeader from "@/components/Header";
 import ImagePickerBox from "@/components/imagePickerBox";
 import Input from "@/components/input";
 import PrimaryButton from "@/components/primaryButton";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-// import * as FileSystem from "expo-file-system";
-import { Picker } from "@react-native-picker/picker";
-import * as FileSystem from "expo-file-system/legacy";
-
-import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
-import React, { useEffect, useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import axios from "axios";
 
 const AddProduct = () => {
-  // ------------------ Form State ------------------
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  // const [categoryId, setCategoryId] = useState("");
-  const [categories, setCategories] = useState([]);
+  const [categories, setCategories] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("");
-  const [loading, setLoading] = useState(true);
   const [subCategoryId, setSubCategoryId] = useState("");
   const [subSubCategoryId, setSubSubCategoryId] = useState("");
   const [brands, setBrands] = useState<any[]>([]);
@@ -29,21 +32,21 @@ const AddProduct = () => {
   const [code, setCode] = useState("");
   const [unitPrice, setUnitPrice] = useState("");
   const [minimumOrderQty, setMinimumOrderQty] = useState("1");
-  const [currentStock, setCurrentStock] = useState("");
+  const [currentStock, setCurrentStock] = useState("0");
   const [discountType, setDiscountType] = useState("percent");
-  const [discount, setDiscount] = useState("");
-  const [tax, setTax] = useState("");
-  const [shippingCost, setShippingCost] = useState("");
-  const [unit, setUnit] = useState("100");
-  const [purchasePrice, setPurchasePrice] = useState("");
+  const [discount, setDiscount] = useState("0");
+  const [tax, setTax] = useState("0");
+  const [taxCalculation, setTaxCalculation] = useState("");
+  const [shippingCost, setShippingCost] = useState("0");
+  // const [unit, setUnit] = useState("");
+  // const [purchasePrice, setPurchasePrice] = useState("");
   const [thumbnail, setThumbnail] = useState<any>(null);
   const [images, setImages] = useState<any[]>([]);
-
-  // const [brandId, setBrandId] = useState(""); // currently selected brand
+  const [isPublishing, setIsPublishing] = useState(false);
 
   // ------------------ Permissions ------------------
   useEffect(() => {
-    const requestPermissions = async () => {
+    (async () => {
       const { status } =
         await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== "granted") {
@@ -52,123 +55,34 @@ const AddProduct = () => {
           "Please allow access to your media library"
         );
       }
-    };
-    requestPermissions();
+    })();
   }, []);
 
-  // Fetch categories from API
+  // ------------------ Fetch Categories ------------------
   useEffect(() => {
     fetch("https://yemi.store/api/v1/categories")
       .then((res) => res.json())
-      .then((data) => {
-        setCategories(data); // save categories
-        setLoading(false);
-      })
-      .catch((error) => {
-        console.error("Error fetching categories:", error);
-        setLoading(false);
-      });
+      .then((data) => setCategories(data))
+      .catch((err) => console.error("Error fetching categories:", err));
   }, []);
 
-  // Fetch Brands from API
+  // ------------------ Fetch Brands ------------------
   useEffect(() => {
     const fetchBrands = async () => {
       try {
         const res = await fetch("https://yemi.store/api/v1/brands");
         const data = await res.json();
-        // Assuming your API returns an array of brands in `data`
         setBrands(data.brands || []);
       } catch (err) {
         console.error("Failed to fetch brands:", err);
       }
     };
-
     fetchBrands();
   }, []);
 
-  // ------------------ Submit ------------------
-  // const handleAddProduct = async () => {
-  //   try {
-  //     const token = await AsyncStorage.getItem("seller_token");
-  //     if (!token) {
-  //       Alert.alert("Error", "Seller token not found. Please log in again.");
-  //       return;
-  //     }
-
-  //     const formData = new FormData();
-  //     formData.append("name", name);
-  //     formData.append("description", description);
-  //     formData.append("category_id", categoryId || "1");
-  //     formData.append("sub_category_id", subCategoryId || "1");
-  //     formData.append("sub_sub_category_id", subSubCategoryId || "1");
-  //     formData.append("brand_id", brandId || "1");
-  //     formData.append("product_type", productType);
-  //     formData.append("code", code || `SKU-${Date.now()}`);
-  //     formData.append("unit_price", unitPrice);
-  //     formData.append("minimum_order_qty", minimumOrderQty);
-  //     formData.append("current_stock", currentStock);
-  //     formData.append("discount_type", discountType);
-  //     formData.append("discount", discount);
-  //     formData.append("tax", tax);
-  //     formData.append("lang", "en");
-  //     formData.append("purchase_price", purchasePrice || unitPrice);
-  //     formData.append("shipping_cost", shippingCost);
-  //     formData.append("unit", unit);
-
-  //     // ✅ Attach thumbnail
-  //     if (thumbnail?.uri) {
-  //       formData.append("thumbnail", {
-  //         uri: thumbnail.uri,
-  //         type: thumbnail.type || "image/jpeg",
-  //         name: thumbnail.name || "thumbnail.jpg",
-  //       });
-  //     }
-
-  //     // ✅ Attach product images
-  //     images.forEach((img, index) => {
-  //       formData.append("images[]", {
-  //         uri: img.uri,
-  //         type: img.type || "image/jpeg",
-  //         name: img.name || `product_image_${index}.jpg`,
-  //       });
-  //     });
-  //     // Before the axios call
-  //     console.log("📋 Form data being sent:");
-  //     console.log("Thumbnail:", thumbnail);
-  //     console.log("Images:", images);
-  //     console.log("Images length:", images.length);
-
-  //     // Check if URIs are valid
-  //     if (thumbnail?.uri) {
-  //       console.log(
-  //         "Thumbnail URI starts with:",
-  //         thumbnail.uri.substring(0, 50)
-  //       );
-  //     }
-  //     images.forEach((img, i) => {
-  //       console.log(`Image ${i} URI starts with:`, img.uri.substring(0, 50));
-  //     });
-  //     const res = await axios.post(
-  //       "https://yemi.store/api/v2/seller/products/add",
-  //       formData,
-  //       {
-  //         headers: {
-  //           Authorization: `Bearer ${token}`,
-  //           Accept: "application/json",
-  //         },
-  //       }
-  //     );
-
-  //     console.log("✅ Product added successfully:", res.data);
-  //     Alert.alert("Success", "Product added successfully!");
-  //     router.back();
-  //   } catch (err: any) {
-  //     console.error("❌ Upload error:", err.response?.data || err.message);
-  //     Alert.alert("Error", "Failed to add product.");
-  //   }
-  // };
-
-  const handleAddProduct = async () => {
+  // ------------------ Submit Handler ------------------
+  
+  const handleAddProduct = async (publish: boolean) => {
     try {
       const token = await AsyncStorage.getItem("seller_token");
       if (!token) {
@@ -179,10 +93,10 @@ const AddProduct = () => {
       const formData = new FormData();
       formData.append("name", name);
       formData.append("description", description);
-      formData.append("category_id", categoryId || "1");
-      formData.append("sub_category_id", subCategoryId || "1");
-      formData.append("sub_sub_category_id", subSubCategoryId || "1");
-      formData.append("brand_id", brandId || "1");
+      formData.append("category_id", selectedCategory || "1");
+      formData.append("sub_category_id", subCategoryId || "");
+      formData.append("sub_sub_category_id", subSubCategoryId || "");
+      formData.append("brand_id", brandId || "");
       formData.append("product_type", productType);
       formData.append("code", code || `SKU-${Date.now()}`);
       formData.append("unit_price", unitPrice);
@@ -192,11 +106,12 @@ const AddProduct = () => {
       formData.append("discount", discount);
       formData.append("tax", tax);
       formData.append("lang", "en");
-      formData.append("purchase_price", purchasePrice || unitPrice);
+      // formData.append("purchase_price", purchasePrice || unitPrice);
       formData.append("shipping_cost", shippingCost);
-      formData.append("unit", unit);
+      // formData.append("unit", unit);
+      formData.append("published", publish ? "1" : "0");
 
-      // Convert thumbnail URI if needed
+      // Thumbnail
       if (thumbnail?.uri) {
         const fileInfo = await FileSystem.getInfoAsync(thumbnail.uri);
         const localUri = fileInfo.exists ? fileInfo.uri : thumbnail.uri;
@@ -207,7 +122,7 @@ const AddProduct = () => {
         });
       }
 
-      // Convert images URIs if needed
+      // Product Images
       for (let i = 0; i < images.length; i++) {
         const img = images[i];
         const fileInfo = await FileSystem.getInfoAsync(img.uri);
@@ -221,44 +136,32 @@ const AddProduct = () => {
 
       console.log("Uploading product...");
 
-      // Use fetch instead of axios
-      const res = await fetch("https://yemi.store/api/v2/seller/products/add", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/json",
-          "Content-Type": "multipart/form-data",
-        },
-        body: formData,
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        console.error("❌ Upload failed:", data);
-        Alert.alert("Error", "Failed to add product.");
-        return;
-      }
+      const res = await axios.post(
+        "https://yemi.store/api/v2/seller/products/add",
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
 
-      // const res = await axios.post(
-      //   "https://yemi.store/api/v2/seller/products/add",
-      //   formData,
-      //   {
-      //     headers: {
-      //       Authorization: `Bearer ${token}`,
-      //       Accept: "application/json",
-      //       // DON'T set 'Content-Type', let axios handle multipart/form-data
-      //     },
-      //   }
-      // );
-
-      console.log("✅ Product added successfully:", data);
-      Alert.alert("Success", "Product added successfully!");
+      console.log("✅ Product added successfully:", res.data);
+      Alert.alert("Success", `Product ${publish ? "published" : "saved"}!`);
       router.back();
     } catch (err: any) {
-      console.error("❌ Upload error:", err.response?.data || err.message);
-      Alert.alert(
-        "Error",
-        "Failed to add product. Check your network or images."
-      );
+      // Show backend error if available
+      if (err.response && err.response.data) {
+        console.error("❌ Backend error:", err.response.data);
+        Alert.alert("Backend Error", JSON.stringify(err.response.data));
+      } else {
+        console.error("❌ Upload error:", err.message);
+        Alert.alert(
+          "Error",
+          "Failed to add product. Check your network or images."
+        );
+      }
     }
   };
 
@@ -267,8 +170,7 @@ const AddProduct = () => {
       <AddProductHeader
         title="Add Product"
         leftIcon="arrow-back"
-        onLeftPress={() => router.navigate("/myProducts")}
-        rightIcon="ellipsis-vertical"
+        onLeftPress={() => router.back()}
       />
 
       <ScrollView
@@ -276,7 +178,6 @@ const AddProduct = () => {
         contentContainerStyle={{ paddingBottom: "30%" }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Product Info */}
         <Text style={styles.info}>Product Information</Text>
         <View style={styles.information}>
           <ImagePickerBox
@@ -307,37 +208,25 @@ const AddProduct = () => {
               )
             }
           />
-          <Input label="Product Name" value={name} onChangeText={setName} />
+          <Input label="Product Name" value={name} onChangeText={setName} required={true} />
           <Input
             label="Description"
             value={description}
             onChangeText={setDescription}
             multiline
+            
             inputStyle={{ textAlignVertical: "top", height: 120 }}
           />
         </View>
 
-        {/* General Setup */}
+        {/* Category & Brand */}
         <Text style={styles.info}>General Setup</Text>
         <View style={styles.setup}>
-          {/* <Input
-            label="Category ID"
-            value={categoryId}
-            onChangeText={setCategoryId}
-          /> */}
-          <Text style={{ marginBottom: 5, fontSize: 15, fontWeight: "600" }}>
-            Select Category
+          {/* Select Category */}
+          <Text style={styles.inputLabel}>
+            Select Category <Text style={styles.requiredStar}>*</Text>
           </Text>
-          <View
-            style={{
-              borderWidth: 1,
-              borderColor: "grey",
-              borderRadius: 10,
-              marginVertical: 5,
-              backgroundColor: "#FFF",
-              overflow: "hidden", // important for Android to show rounded borders
-            }}
-          >
+          <View style={styles.inputForm}>
             <Picker
               selectedValue={selectedCategory}
               onValueChange={(itemValue) => setSelectedCategory(itemValue)}
@@ -348,89 +237,145 @@ const AddProduct = () => {
               ))}
             </Picker>
           </View>
+          {/* Select Sub-Category */}
+          <Text style={styles.inputLabel}>Select Sub Category</Text>
+          <View style={styles.inputForm}>
+            <Picker
+              selectedValue={selectedCategory}
+              onValueChange={(itemValue) => setSelectedCategory(itemValue)}
+            >
+              <Picker.Item label="Select Sub Category" value="" />
+              {categories.map((cat) => (
+                <Picker.Item key={cat.id} label={cat.name} value={cat.id} />
+              ))}
+            </Picker>
+          </View>
 
-          <Input
-            label="Sub Category ID"
-            value={subCategoryId}
-            onChangeText={setSubCategoryId}
-          />
-          <Input
-            label="Sub Sub Category ID"
-            value={subSubCategoryId}
-            onChangeText={setSubSubCategoryId}
-          />
-          {/* <Input label="Brand ID" value={brandId} onChangeText={setBrandId} /> */}
-          <Text style={{ marginTop: 10, fontSize: 10, fontWeight: "600" }}>
-            Brand
-          </Text>
-          <View
-            style={{
-              borderWidth: 1,
-              borderColor: "grey",
-              borderRadius: 10,
-              marginVertical: 5,
-              backgroundColor: "#FFF",
-              overflow: "hidden", // important for Android to show rounded borders
-            }}
-          >
+          {/* Select sub-sub category */}
+          <Text style={styles.inputLabel}>Sub-Sub Category</Text>
+          <View style={styles.inputForm}>
+            <Picker
+              selectedValue={selectedCategory}
+              onValueChange={(itemValue) => setSelectedCategory(itemValue)}
+            >
+              <Picker.Item label="Select Sub Sub Category" value="" />
+              {brands.map((b) => (
+                <Picker.Item key={b.id} label={b.name} value={b.id} />
+              ))}
+            </Picker>
+          </View>
+          {/* Select Brand */}
+          <Text style={styles.inputLabel}>Brand</Text>
+          <View style={styles.inputForm}>
             <Picker
               selectedValue={brandId}
               onValueChange={(itemValue) => setBrandId(itemValue)}
             >
               <Picker.Item label="Select Brand" value="" />
-              {brands?.map((b) => (
+              {brands.map((b) => (
                 <Picker.Item key={b.id} label={b.name} value={b.id} />
               ))}
             </Picker>
           </View>
+          {/* Product Type Field */}
+          <Text style={styles.inputLabel}>
+            Product Type <Text style={styles.requiredStar}>*</Text>
+          </Text>
+          <View style={styles.inputForm}>
+            <Picker
+              selectedValue={productType}
+              onValueChange={(value) => setProductType(value)}
+              // mode="dropdown"
+            >
+              {/* <Picker.Item label="All" value="All" /> */}
+              <Picker.Item label="Physical" value="Physical" />
+              <Picker.Item label="Digital" value="Digital" />
+            </Picker>
+          </View>
 
+          {/* Product SKU Code Field */}
           <Input
-            label="Product Type"
-            value={productType}
-            onChangeText={setProductType}
+            label="Product SKU"
+            value={code}
+            onChangeText={setCode}
+            required={true}
           />
-          <Input label="Product SKU" value={code} onChangeText={setCode} />
         </View>
 
         {/* Pricing & Inventory */}
         <Text style={styles.price}>Pricing & Inventory</Text>
         <View style={styles.information}>
+          {/* Unit Price Field */}
           <Input
-            label="Unit Price"
+            label="Unit Price ($)"
             value={unitPrice}
             onChangeText={setUnitPrice}
+            required={true}
+            keyboardType="phone-pad"
           />
+          {/* MOQ Field */}
           <Input
             label="Minimum Order Qty"
             value={minimumOrderQty}
             onChangeText={setMinimumOrderQty}
+            required={true}
+            keyboardType="phone-pad"
           />
+          {/* Current Stock Field */}
           <Input
-            label="Current Stock"
+            label="Current Stock Qty"
             value={currentStock}
             onChangeText={setCurrentStock}
+            required={true}
+            keyboardType="phone-pad"
           />
+          {/* Discount Type Field */}
+          <Text style={styles.inputLabel}>Discount Type</Text>
+          <View style={styles.inputForm}>
+            <Picker
+              selectedValue={discountType}
+              onValueChange={(itemValue) => setDiscountType(itemValue)}
+            >
+              <Picker.Item label="Select Discount Type" value="" />
+              <Picker.Item label="Flat" value="flat" />
+              <Picker.Item label="Percentage" value="percentage" />
+            </Picker>
+          </View>
+          {/* Discount Amount Field */}
           <Input
-            label="Discount Type"
-            value={discountType}
-            onChangeText={setDiscountType}
-          />
-          <Input
-            label="Discount Amount"
+            label="Discount Amount ($)"
             value={discount}
             onChangeText={setDiscount}
+            keyboardType="phone-pad"
           />
-          <Input label="Tax" value={tax} onChangeText={setTax} />
+          {/* Tax Amount Field */}
           <Input
-            label="Purchase Price"
-            value={purchasePrice}
-            onChangeText={setPurchasePrice}
+            label="Tax Amount (%)"
+            value={tax}
+            onChangeText={setTax}
+            required={true}
+            keyboardType="phone-pad"
           />
-          <Input label="Unit" value={unit} onChangeText={setUnit} />
+
+          {/* Tax calculation Field */}
+          <Text style={styles.inputLabel}>Tax calculation</Text>
+          <View style={styles.inputForm}>
+            <Picker
+              selectedValue={taxCalculation}
+              onValueChange={(itemValue) => setTaxCalculation(itemValue)}
+            >
+              <Picker.Item label="Select Tax Calculation" value="" />
+              <Picker.Item label="Include with Product" value="include" />
+              <Picker.Item label="Exclude with Product" value="exclude" />
+            </Picker>
+          </View>
+          {/* Shipping Cost Field*/}
           <Input
-            label="Shipping Cost"
+            label="Shipping Cost ($)"
             value={shippingCost}
             onChangeText={setShippingCost}
+            required={true}
+            keyboardType="phone-pad"
           />
         </View>
 
@@ -438,12 +383,12 @@ const AddProduct = () => {
         <View style={styles.buttonRow}>
           <PrimaryButton
             title="Save as Draft"
-            onPress={handleAddProduct}
+            onPress={() => handleAddProduct(false)}
             variant="outline"
           />
           <PrimaryButton
             title="Publish Product"
-            onPress={handleAddProduct}
+            onPress={() => handleAddProduct(true)}
             variant="primary"
           />
         </View>
@@ -495,6 +440,17 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 4,
   },
+
+  inputLabel: { marginBottom: 15, fontSize: 15, fontWeight: "600" },
+  inputForm: {
+    borderWidth: 1,
+    borderColor: "grey",
+    borderRadius: 10,
+    marginVertical: 5,
+    backgroundColor: "#FFF",
+    overflow: "hidden",
+  },
+  requiredStar: { color: "red" },
   buttonRow: {
     flexDirection: "row",
     gap: 10,

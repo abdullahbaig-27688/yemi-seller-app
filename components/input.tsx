@@ -9,6 +9,8 @@ type Props = {
   multiline?: boolean;
   numberOfLines?: number;
   inputStyle?: object;
+  required?: boolean; // <-- New prop
+  keyboardType?: "default" | "numeric";
 };
 
 const Input = ({
@@ -19,17 +21,28 @@ const Input = ({
   multiline = false,
   numberOfLines = 1,
   inputStyle,
+  required = false,
+  keyboardType = "default",
 }: Props) => {
   return (
     <View style={styles.container}>
-      {label && <Text style={styles.label}>{label}</Text>}
+      {label && (
+        <Text style={styles.label}>
+          {label} {required && <Text style={styles.requiredStar}> *</Text>}
+        </Text>
+      )}
       <TextInput
-        style={[styles.input, inputStyle, multiline && { textAlignVertical: "top" }]}
+        style={[
+          styles.input,
+          inputStyle,
+          multiline && { textAlignVertical: "top" },
+        ]}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
         multiline={multiline}
         numberOfLines={numberOfLines}
+        keyboardType={keyboardType}
       />
     </View>
   );
@@ -42,9 +55,9 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   label: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "500",
-    marginBottom: 6,
+    marginBottom: 5,
   },
   input: {
     borderWidth: 1,
@@ -54,5 +67,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 16,
     // backgroundColor: "#FFD2B4",
+  },
+  requiredStar: {
+    color: "red",
   },
 });

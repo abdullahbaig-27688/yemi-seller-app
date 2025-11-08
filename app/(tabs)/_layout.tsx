@@ -97,6 +97,91 @@ export default function TabLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="pendingOrder"
+        options={{
+          // title: "Account",
+          href: null,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person-circle-outline" size={size} color={color} />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="confirmedOrder"
+        options={{
+          // title: "Account",
+          href: null,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person-circle-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="packagingOrder"
+        options={{
+          // title: "Account",
+          href: null,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person-circle-outline" size={size} color={color} />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="deliveryOrder"
+        options={{
+          // title: "Account",
+          href: null,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person-circle-outline" size={size} color={color} />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="deliveredOrder"
+        options={{
+          // title: "Account",
+          href: null,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person-circle-outline" size={size} color={color} />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="returnedOrder"
+        options={{
+          // title: "Account",
+          href: null,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person-circle-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="cancelledOrder"
+        options={{
+          // title: "Account",
+          href: null,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person-circle-outline" size={size} color={color} />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="failedOrder"
+        options={{
+          // title: "Account",
+          href: null,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person-circle-outline" size={size} color={color} />
+          ),
+        }}
+      />
     </Tabs>
   );
 }
