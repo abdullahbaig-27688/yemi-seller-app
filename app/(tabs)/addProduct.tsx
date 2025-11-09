@@ -39,7 +39,7 @@ const AddProduct = () => {
   const [taxCalculation, setTaxCalculation] = useState("");
   const [shippingCost, setShippingCost] = useState("0");
   // const [unit, setUnit] = useState("");
-  // const [purchasePrice, setPurchasePrice] = useState("");
+  const [purchasePrice, setPurchasePrice] = useState("");
   const [thumbnail, setThumbnail] = useState<any>(null);
   const [images, setImages] = useState<any[]>([]);
   const [isPublishing, setIsPublishing] = useState(false);
@@ -106,7 +106,7 @@ const AddProduct = () => {
       formData.append("discount", discount);
       formData.append("tax", tax);
       formData.append("lang", "en");
-      // formData.append("purchase_price", purchasePrice || unitPrice);
+      formData.append("purchase_price", purchasePrice);
       formData.append("shipping_cost", shippingCost);
       // formData.append("unit", unit);
       formData.append("published", publish ? "1" : "0");
@@ -369,6 +369,13 @@ const AddProduct = () => {
               <Picker.Item label="Exclude with Product" value="exclude" />
             </Picker>
           </View>
+          <Input
+            label="Purchase Price ($)"
+            value={purchasePrice}
+            onChangeText={setPurchasePrice}
+            required={true}
+            keyboardType="phone-pad"
+          />
           {/* Shipping Cost Field*/}
           <Input
             label="Shipping Cost ($)"
