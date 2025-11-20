@@ -1,4 +1,4 @@
-import PendingHeader from "@/components/Header";
+import FailedHeader from "@/components/Header";
 import SearchBar from "@/components/SearchBar";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
@@ -16,12 +16,14 @@ import { SafeAreaView } from "react-native-safe-area-context";
 const FailedOrder = () => {
   const [search, setSearch] = useState("");
   const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  // 🔥 Fetch Failed Orders
   const fetchFailedOrders = async () => {
     try {
       setLoading(true);
+      setError("");
+
       const token = await AsyncStorage.getItem("seller_token");
       if (!token) {
         Alert.alert("Error", "No auth token found. Please login again.");
@@ -40,14 +42,15 @@ const FailedOrder = () => {
 
       const data = await response.json();
 
-      if (!data || !data.data) {
-        Alert.alert("Error", "Failed to load orders");
+      if (!data || !data.orders?.data || data.orders.data.length === 0) {
+        setError("No failed orders found");
+        setOrders([]);
         return;
       }
 
-      setOrders(data.data);
+      setOrders(data.orders.data);
     } catch (error) {
-      Alert.alert("Error", "Something went wrong");
+      setError("Something went wrong");
       console.log(error);
     } finally {
       setLoading(false);
@@ -58,7 +61,6 @@ const FailedOrder = () => {
     fetchFailedOrders();
   }, []);
 
-  // 🔍 Filter Based on Search
   const filteredOrders = orders.filter(
     (item) =>
       item.code?.toLowerCase().includes(search.toLowerCase()) ||
@@ -67,7 +69,7 @@ const FailedOrder = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <PendingHeader
+      <FailedHeader
         title="Failed to Deliver Orders"
         leftIcon="arrow-back"
         onLeftPress={() => router.back()}
@@ -81,6 +83,10 @@ const FailedOrder = () => {
 
       {loading ? (
         <ActivityIndicator size="large" style={{ marginTop: 20 }} />
+      ) : error ? (
+        <Text style={styles.message}>{error}</Text>
+      ) : filteredOrders.length === 0 ? (
+        <Text style={styles.message}>No orders match your search</Text>
       ) : (
         <FlatList
           data={filteredOrders}
@@ -112,4 +118,10 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   title: { fontWeight: "bold", fontSize: 16 },
+  message: {
+    textAlign: "center",
+    marginTop: 20,
+    fontSize: 16,
+    color: "#888",
+  },
 });

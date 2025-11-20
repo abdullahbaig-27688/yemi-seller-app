@@ -1,4 +1,4 @@
-import PendingHeader from "@/components/Header";
+import ReturnedHeader from "@/components/Header";
 import SearchBar from "@/components/SearchBar";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
@@ -23,7 +23,7 @@ const ReturnedOrder = () => {
     try {
       setLoading(true);
       setError("");
-      // 🔑 Get token from AsyncStorage
+
       const token = await AsyncStorage.getItem("seller_token");
       if (!token) {
         Alert.alert("Error", "No auth token found. Please login again.");
@@ -42,13 +42,16 @@ const ReturnedOrder = () => {
 
       const data = await response.json();
 
-      if (data?.data) {
-        setOrders(data.data);
-      } else {
+      if (!data || !data.orders?.data || data.orders.data.length === 0) {
         setError("No returned orders found");
+        setOrders([]);
+        return;
       }
+
+      setOrders(data.orders.data);
     } catch (err) {
       setError("Failed to fetch returned orders");
+      console.log(err);
     } finally {
       setLoading(false);
     }
@@ -58,33 +61,32 @@ const ReturnedOrder = () => {
     fetchReturnedOrders();
   }, []);
 
-  // 🔍 Filter list
   const filteredOrders = orders.filter(
     (item) =>
-      item.code.toLowerCase().includes(search.toLowerCase()) ||
-      item.customer_name.toLowerCase().includes(search.toLowerCase())
+      item.code?.toLowerCase().includes(search.toLowerCase()) ||
+      item.customer_name?.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
     <SafeAreaView style={styles.container}>
-      <PendingHeader
+      <ReturnedHeader
         title="Returned Orders"
         leftIcon="arrow-back"
         onLeftPress={() => router.back()}
       />
 
-      {/* Search */}
       <SearchBar
         value={search}
         onChangeText={setSearch}
         placeholder="Search by Order ID or Customer..."
       />
 
-      {/* Loading */}
       {loading ? (
         <ActivityIndicator size="large" style={{ marginTop: 20 }} />
       ) : error ? (
-        <Text style={{ textAlign: "center", marginTop: 10 }}>{error}</Text>
+        <Text style={styles.message}>{error}</Text>
+      ) : filteredOrders.length === 0 ? (
+        <Text style={styles.message}>No orders match your search</Text>
       ) : (
         <FlatList
           data={filteredOrders}
@@ -116,4 +118,10 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   title: { fontWeight: "bold", fontSize: 16 },
+  message: {
+    textAlign: "center",
+    marginTop: 20,
+    fontSize: 16,
+    color: "#888",
+  },
 });

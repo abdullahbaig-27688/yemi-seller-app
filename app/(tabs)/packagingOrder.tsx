@@ -1,4 +1,4 @@
-import PendingHeader from "@/components/Header";
+import PackedHeader from "@/components/Header";
 import SearchBar from "@/components/SearchBar";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
@@ -13,17 +13,18 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-const PendingOrder = () => {
+const PackedOrder = () => {
   const [search, setSearch] = useState("");
   const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   // 🔥 Fetch Pending (Packaging) Orders API
-  const fetchPendingOrders = async () => {
+  const fetchPackedOrders = async () => {
     try {
       setLoading(true);
+      setError("");
 
-      // 🔑 Get token from AsyncStorage
       const token = await AsyncStorage.getItem("seller_token");
       if (!token) {
         Alert.alert("Error", "No auth token found. Please login again.");
@@ -42,14 +43,15 @@ const PendingOrder = () => {
 
       const data = await response.json();
 
-      if (!data || !data.data) {
-        Alert.alert("Error", "Unable to load orders");
+      if (!data || !data.orders?.data || data.orders.data.length === 0) {
+        setError("No pending orders found");
+        setOrders([]);
         return;
       }
 
-      setOrders(data.data);
+      setOrders(data.orders.data);
     } catch (error) {
-      Alert.alert("Error", "Something went wrong");
+      setError("Something went wrong");
       console.log(error);
     } finally {
       setLoading(false);
@@ -57,10 +59,9 @@ const PendingOrder = () => {
   };
 
   useEffect(() => {
-    fetchPendingOrders();
+    fetchPackedOrders();
   }, []);
 
-  // 🔍 Search Filter
   const filteredOrders = orders.filter(
     (item) =>
       item.code?.toLowerCase().includes(search.toLowerCase()) ||
@@ -69,7 +70,7 @@ const PendingOrder = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <PendingHeader
+      <PackedHeader
         title="Packaging Orders"
         leftIcon="arrow-back"
         onLeftPress={() => router.back()}
@@ -83,6 +84,10 @@ const PendingOrder = () => {
 
       {loading ? (
         <ActivityIndicator size="large" style={{ marginTop: 20 }} />
+      ) : error ? (
+        <Text style={styles.message}>{error}</Text>
+      ) : filteredOrders.length === 0 ? (
+        <Text style={styles.message}>No orders match your search</Text>
       ) : (
         <FlatList
           data={filteredOrders}
@@ -100,7 +105,7 @@ const PendingOrder = () => {
   );
 };
 
-export default PendingOrder;
+export default PackedOrder;
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f8f8f8" },
@@ -114,4 +119,10 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   title: { fontWeight: "bold", fontSize: 16 },
+  message: {
+    textAlign: "center",
+    marginTop: 20,
+    fontSize: 16,
+    color: "#888",
+  },
 });

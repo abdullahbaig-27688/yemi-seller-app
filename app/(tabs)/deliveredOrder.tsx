@@ -1,4 +1,4 @@
-import ConfirmedHeader from "@/components/Header";
+import DeliveredHeader from "@/components/Header";
 import SearchBar from "@/components/SearchBar";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
@@ -17,13 +17,13 @@ const DeliveredOrders = () => {
   const [search, setSearch] = useState("");
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(""); // ✅ error/message state
 
   const fetchDeliveredOrders = async () => {
     try {
       setLoading(true);
       setError("");
-      // ⭐ Get token from AsyncStorage
+
       const token = await AsyncStorage.getItem("seller_token");
       if (!token) {
         Alert.alert("Error", "No auth token found. Please login again.");
@@ -35,20 +35,23 @@ const DeliveredOrders = () => {
         "https://yemi.store/api/v2/seller/orders/vendor/delivered",
         {
           headers: {
-            Authorization: `Bearer ${token}`, // ✅ dynamic token
+            Authorization: `Bearer ${token}`,
           },
         }
       );
 
       const data = await response.json();
 
-      if (data?.data) {
-        setOrders(data.data);
-      } else {
-        setError("No delivered orders found");
+      if (!data || !data.orders?.data || data.orders.data.length === 0) {
+        setError("No delivered orders found"); // ✅ empty state message
+        setOrders([]);
+        return;
       }
+
+      setOrders(data.orders.data);
     } catch (err) {
       setError("Failed to fetch orders");
+      console.log(err);
     } finally {
       setLoading(false);
     }
@@ -61,13 +64,13 @@ const DeliveredOrders = () => {
   // 🔍 Search filter
   const filteredOrders = orders.filter(
     (item) =>
-      item.code.toLowerCase().includes(search.toLowerCase()) ||
-      item.customer_name.toLowerCase().includes(search.toLowerCase())
+      item.code?.toLowerCase().includes(search.toLowerCase()) ||
+      item.customer_name?.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
     <SafeAreaView style={styles.container}>
-      <ConfirmedHeader
+      <DeliveredHeader
         title="Delivered Orders"
         leftIcon="arrow-back"
         onLeftPress={() => router.back()}
@@ -82,7 +85,11 @@ const DeliveredOrders = () => {
       {loading ? (
         <ActivityIndicator size="large" style={{ marginTop: 20 }} />
       ) : error ? (
-        <Text style={{ textAlign: "center", marginTop: 10 }}>{error}</Text>
+        <Text style={styles.message}>{error}</Text> // ✅ display empty/error message
+      ) : filteredOrders.length === 0 ? (
+        <Text style={styles.message}>
+          No delivered orders match your search
+        </Text>
       ) : (
         <FlatList
           data={filteredOrders}
@@ -114,4 +121,10 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   title: { fontWeight: "bold", fontSize: 16 },
+  message: {
+    textAlign: "center",
+    marginTop: 20,
+    fontSize: 16,
+    color: "#888",
+  },
 });

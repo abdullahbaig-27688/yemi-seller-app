@@ -17,12 +17,14 @@ const ConfirmedOrder = () => {
   const [search, setSearch] = useState("");
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(""); // ✅ state for messages
 
   // 🔥 Fetch Confirmed Orders from API
   const fetchConfirmedOrders = async () => {
     try {
       setLoading(true);
-      // ⭐ Fetch token from AsyncStorage
+      setError(""); // reset error
+
       const token = await AsyncStorage.getItem("seller_token");
       if (!token) {
         Alert.alert("Error", "No auth token found. Please login again.");
@@ -34,21 +36,22 @@ const ConfirmedOrder = () => {
         "https://yemi.store/api/v2/seller/orders/vendor/confirmed",
         {
           headers: {
-            Authorization: `Bearer ${token}`, // ✅ token applied here
+            Authorization: `Bearer ${token}`,
           },
         }
       );
 
       const data = await response.json();
 
-      if (!data || !data.data) {
-        Alert.alert("Error", "Unable to load confirmed orders");
+      if (!data || !data.orders?.data || data.orders.data.length === 0) {
+        setError("No confirmed orders found"); // ✅ show message if empty
+        setOrders([]);
         return;
       }
 
-      setOrders(data.data);
+      setOrders(data.orders.data);
     } catch (error) {
-      Alert.alert("Error", "Something went wrong while fetching orders");
+      setError("Something went wrong while fetching orders");
       console.log(error);
     } finally {
       setLoading(false);
@@ -82,6 +85,12 @@ const ConfirmedOrder = () => {
 
       {loading ? (
         <ActivityIndicator size="large" style={{ marginTop: 20 }} />
+      ) : error ? (
+        <Text style={styles.message}>{error}</Text> // ✅ display message
+      ) : filteredOrders.length === 0 ? (
+        <Text style={styles.message}>
+          No confirmed orders match your search
+        </Text>
       ) : (
         <FlatList
           data={filteredOrders}
@@ -113,4 +122,10 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   title: { fontWeight: "bold", fontSize: 16 },
+  message: {
+    textAlign: "center",
+    marginTop: 20,
+    fontSize: 16,
+    color: "#888",
+  },
 });
