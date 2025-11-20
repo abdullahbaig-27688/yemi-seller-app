@@ -47,14 +47,11 @@ const OrderDetail = () => {
           </View>
         </TouchableOpacity>
       ))}
-      <PrimaryButton
-        title="Update Status"
-        onPress={() => router.back()}
-      />
+      <PrimaryButton title="Update Status" onPress={() => router.back()} />
     </View>
   );
 };
-export default  OrderDetail;
+export default OrderDetail;
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff", padding: 16, paddingTop: 50 },
   infoBox: {

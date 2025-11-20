@@ -1,6 +1,6 @@
 import Heading from "@/components/Header";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   FlatList,
   Image,
@@ -9,72 +9,73 @@ import {
   Text,
   TextInput,
   View,
-  ScrollView,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-// Example order data
-const incomingOrders = [
-  {
-    id: "1",
-    name: "Liam Harper",
-    order: "#12345",
-    amount: "$45",
-    avatar: "https://randomuser.me/api/portraits/men/1.jpg",
-    status: "Pending",
-    date: "2025-10-29",
-  },
-  {
-    id: "2",
-    name: "Olivia Bennett",
-    order: "#12346",
-    amount: "$60",
-    avatar: "https://randomuser.me/api/portraits/women/2.jpg",
-    status: "Processing",
-    date: "2025-10-28",
-  },
-  {
-    id: "3",
-    name: "Noah Carter",
-    order: "#12347",
-    amount: "$25",
-    avatar: "https://randomuser.me/api/portraits/men/3.jpg",
-    status: "Completed",
-    date: "2025-10-27",
-  },
-  {
-    id: "4",
-    name: "Ava Thompson",
-    order: "#12348",
-    amount: "$80",
-    avatar: "https://randomuser.me/api/portraits/women/4.jpg",
-    status: "Cancelled",
-    date: "2025-10-26",
-  },
-];
-
 const statusColors: Record<string, string> = {
-  Pending: "#f1c40f",
-  Processing: "#3498db",
-  Completed: "#2ecc71",
-  Cancelled: "#e74c3c",
+  pending: "#f1c40f",
+  confirmed: "#3498db",
+  completed: "#2ecc71",
+  canceled: "#e74c3c",
 };
 
 const IncomingOrder = () => {
+  const [orders, setOrders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [filter, setFilter] = useState("All");
+  const [filter, setFilter] = useState("all");
 
-  // Filtered orders based on search & status
-  const filteredOrders = incomingOrders.filter((order) => {
-    const matchesSearch =
-      order.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.order.toLowerCase().includes(searchQuery.toLowerCase());
+  const filters = ["all", "pending", "confirmed", "completed", "canceled"];
 
-    if (filter === "All") return matchesSearch;
-    return matchesSearch && order.status === filter;
+  // Fetch orders from API
+  const fetchOrders = async () => {
+    try {
+      setLoading(true);
+
+      const response = await fetch(
+        "https://yemi.store/api/v2/seller/orders/list",
+        {
+          method: "GET",
+          headers: {
+            Authorization:
+              "Bearer KKtlwvY3WmtZqOgZppNiUso74pc5eo8q8rdFRG3RZieG5tAJYJ",
+            Accept: "application/json",
+          },
+        }
+      );
+
+      const data = await response.json();
+      console.log("Fetched Orders:", data);
+
+      if (data && data.data) {
+        setOrders(data.data);
+      } else {
+        setOrders([]);
+      }
+    } catch (error) {
+      console.log("API Fetch Error:", error);
+      setOrders([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchOrders();
+  }, []);
+
+  // Filter logic
+  const filteredOrders = orders.filter((order) => {
+    const search =
+      order.customer?.f_name
+        ?.toLowerCase()
+        .includes(searchQuery.toLowerCase()) ||
+      order.id?.toString().includes(searchQuery);
+
+    if (filter === "all") return search;
+    return search && order.order_status === filter;
   });
-
-  const filters = ["All", "Pending", "Processing", "Completed", "Cancelled"];
 
   return (
     <SafeAreaView style={styles.container}>
@@ -83,89 +84,91 @@ const IncomingOrder = () => {
         leftIcon="arrow-back"
         onLeftPress={() => router.back()}
       />
-      <ScrollView style={styles.content}>
-        {/* Search */}
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search by buyer or order ID..."
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholderTextColor="#888"
-        />
 
-        {/* Filter buttons */}
-        <View style={styles.filterRow}>
-          {filters.map((status) => (
-            <Pressable
-              key={status}
+      {/* Search */}
+      <TextInput
+        style={styles.searchInput}
+        placeholder="Search by buyer or order ID..."
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        placeholderTextColor="#888"
+      />
+
+      {/* Filters */}
+      <View style={styles.filterRow}>
+        {filters.map((status) => (
+          <Pressable
+            key={status}
+            style={[
+              styles.filterButton,
+              filter === status && styles.activeFilterButton,
+            ]}
+            onPress={() => setFilter(status)}
+          >
+            <Text
               style={[
-                styles.filterButton,
-                filter === status && styles.activeFilterButton,
+                styles.filterText,
+                filter === status && styles.activeFilterText,
               ]}
-              onPress={() => setFilter(status)}
             >
-              <Text
-                style={[
-                  styles.filterText,
-                  filter === status && styles.activeFilterText,
-                ]}
-              >
-                {status}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+              {status}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
 
-        {filteredOrders.length === 0 ? (
-          <Text style={styles.emptyText}>No orders found.</Text>
-        ) : (
-          <FlatList
-            showsVerticalScrollIndicator={false}
-            data={filteredOrders}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <View style={styles.card}>
-                <Image source={{ uri: item.avatar }} style={styles.avatar} />
-                <View style={styles.cardContent}>
-                  <Text style={styles.buyerName}>{item.name}</Text>
-                  <Text style={styles.orderId}>{item.order}</Text>
-                  <Text style={styles.orderAmount}>{item.amount}</Text>
-                  <Text style={styles.orderDate}>{item.date}</Text>
-                </View>
-                <View style={styles.cardActions}>
-                  <Text
-                    style={[
-                      styles.statusBadge,
-                      { backgroundColor: statusColors[item.status] || "#777" },
-                    ]}
-                  >
-                    {item.status}
-                  </Text>
-                  {item.status === "Pending" && (
-                    <Pressable
-                      style={styles.actionButton}
-                      onPress={() => console.log("Mark as Processing", item.id)}
-                    >
-                      <Text style={styles.actionText}>Process</Text>
-                    </Pressable>
-                  )}
-                  {item.status !== "Cancelled" && (
-                    <Pressable
-                      style={[
-                        styles.actionButton,
-                        { backgroundColor: "#e74c3c" },
-                      ]}
-                      onPress={() => console.log("Cancel order", item.id)}
-                    >
-                      <Text style={styles.actionText}>Cancel</Text>
-                    </Pressable>
-                  )}
-                </View>
+      {/* Loading */}
+      {loading ? (
+        <ActivityIndicator
+          size="large"
+          color="#FA8232"
+          style={{ marginTop: 40 }}
+        />
+      ) : filteredOrders.length === 0 ? (
+        <Text style={styles.emptyText}>No orders found.</Text>
+      ) : (
+        <FlatList
+          showsVerticalScrollIndicator={false}
+          data={filteredOrders}
+          keyExtractor={(item) => item.id.toString()}
+          contentContainerStyle={{ paddingBottom: 40 }}
+          renderItem={({ item }) => (
+            <View style={styles.card}>
+              <Image
+                source={{
+                  uri:
+                    item.customer?.image ||
+                    "https://cdn-icons-png.flaticon.com/512/149/149071.png",
+                }}
+                style={styles.avatar}
+              />
+
+              <View style={styles.cardContent}>
+                <Text style={styles.buyerName}>
+                  {item.customer?.f_name} {item.customer?.l_name}
+                </Text>
+                <Text style={styles.orderId}>Order #{item.id}</Text>
+                <Text style={styles.orderAmount}>${item.order_amount}</Text>
+                <Text style={styles.orderDate}>{item.created_at}</Text>
               </View>
-            )}
-          />
-        )}
-      </ScrollView>
+
+              <View style={styles.cardActions}>
+                <Text
+                  style={[
+                    styles.statusBadge,
+                    {
+                      backgroundColor:
+                        statusColors[item.order_status] || "#777",
+                    },
+                  ]}
+                >
+                  {item.order_status}
+                </Text>
+              </View>
+            </View>
+          )}
+        />
+      )}
     </SafeAreaView>
   );
 };
@@ -174,12 +177,12 @@ export default IncomingOrder;
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
-    content: { padding: 20 },
   searchInput: {
     backgroundColor: "#f5f5f5",
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
+    marginTop: 10,
     marginBottom: 12,
     fontSize: 16,
     color: "#000",
@@ -198,12 +201,14 @@ const styles = StyleSheet.create({
   activeFilterButton: { backgroundColor: "#FA8232" },
   filterText: { color: "#555", fontWeight: "600" },
   activeFilterText: { color: "#fff" },
+
   emptyText: {
     textAlign: "center",
     marginTop: 50,
     fontSize: 16,
     color: "#888",
   },
+
   card: {
     flexDirection: "row",
     padding: 16,
@@ -223,7 +228,9 @@ const styles = StyleSheet.create({
   orderId: { fontSize: 14, color: "#555" },
   orderAmount: { fontSize: 14, fontWeight: "600", marginTop: 2 },
   orderDate: { fontSize: 12, color: "#888", marginTop: 2 },
+
   cardActions: { alignItems: "flex-end" },
+
   statusBadge: {
     color: "#fff",
     paddingHorizontal: 8,
@@ -234,12 +241,4 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: "center",
   },
-  actionButton: {
-    backgroundColor: "#3498db",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    marginTop: 4,
-  },
-  actionText: { color: "#fff", fontWeight: "600", fontSize: 12 },
 });
