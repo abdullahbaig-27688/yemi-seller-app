@@ -7,11 +7,13 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  Alert,
   TextInput,
   View,
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const statusColors: Record<string, string> = {
   pending: "#f1c40f",
@@ -32,14 +34,19 @@ const IncomingOrder = () => {
   const fetchOrders = async () => {
     try {
       setLoading(true);
+      const token = await AsyncStorage.getItem("seller_token");
+      if (!token) {
+        Alert.alert("Error", "No auth token found. Please login again.");
+        setLoading(false);
+        return;
+      }
 
       const response = await fetch(
         "https://yemi.store/api/v2/seller/orders/list",
         {
           method: "GET",
           headers: {
-            Authorization:
-              "Bearer KKtlwvY3WmtZqOgZppNiUso74pc5eo8q8rdFRG3RZieG5tAJYJ",
+            Authorization: `Bearer ${token}`,
             Accept: "application/json",
           },
         }
