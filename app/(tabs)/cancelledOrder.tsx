@@ -17,7 +17,7 @@ const CancelledOrder = () => {
   const [search, setSearch] = useState("");
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(""); // ✅ new state for messages
+  const [error, setError] = useState(""); // state for messages
 
   // 🔥 Fetch Cancelled Orders
   const fetchCancelledOrders = async () => {
@@ -37,19 +37,22 @@ const CancelledOrder = () => {
         {
           headers: {
             Authorization: `Bearer ${token}`,
+            Accept: "application/json",
           },
         }
       );
 
+      console.log("API Status:", response.status);
       const data = await response.json();
+      console.log("Cancelled Orders:", data);
 
       if (!data || !data.orders?.data || data.orders.data.length === 0) {
-        setError("No cancelled orders found"); // ✅ show message if empty
+        setError("No cancelled orders found");
         setOrders([]);
         return;
       }
 
-      setOrders(data.orders.data);
+      setOrders(data.orders.data); // ✅ set orders directly
     } catch (error) {
       setError("Something went wrong");
       console.log(error);
@@ -66,7 +69,7 @@ const CancelledOrder = () => {
   const filteredOrders = orders.filter(
     (item) =>
       item.code?.toLowerCase().includes(search.toLowerCase()) ||
-      item.customer_name?.toLowerCase().includes(search.toLowerCase())
+      item.customer?.name?.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -86,7 +89,7 @@ const CancelledOrder = () => {
       {loading ? (
         <ActivityIndicator size="large" style={{ marginTop: 20 }} />
       ) : error ? (
-        <Text style={styles.message}>{error}</Text> // ✅ display message
+        <Text style={styles.message}>{error}</Text>
       ) : filteredOrders.length === 0 ? (
         <Text style={styles.message}>
           No cancelled orders match your search
@@ -98,8 +101,10 @@ const CancelledOrder = () => {
           renderItem={({ item }) => (
             <View style={styles.card}>
               <Text style={styles.title}>Order #{item.code}</Text>
-              <Text>Customer: {item.customer_name}</Text>
-              <Text>Total: Rs {item.grand_total}</Text>
+              <Text>Customer: {item.customer?.name}</Text>
+              <Text>Total Amount: Rs {item.order_amount}</Text>
+              <Text>Payment Status: {item.payment_status}</Text>
+              <Text>Shipping Type: {item.shipping_type}</Text>
             </View>
           )}
         />

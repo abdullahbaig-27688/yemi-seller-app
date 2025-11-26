@@ -8,8 +8,10 @@ import {
   StyleSheet,
   Alert,
   ScrollView,
+  Platform
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import RNExitApp from "react-native-exit-app";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 
@@ -58,9 +60,15 @@ const Profile = () => {
   };
 
   const handleLogout = async () => {
-    await AsyncStorage.clear();
-    router.replace("/loginScreen"); // Navigate to login
-  };
+  await AsyncStorage.clear();
+
+  if (Platform.OS === "android") {
+    RNExitApp.exitApp(); // Close app on Android
+  } else {
+    // iOS cannot close app programmatically
+    router.replace("/loginScreen"); // Go to login screen
+  }
+};
 
   return (
     <ScrollView contentContainerStyle={styles.container}>

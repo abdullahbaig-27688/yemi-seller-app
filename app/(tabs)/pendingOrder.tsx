@@ -19,7 +19,6 @@ const PendingOrder = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // 🔥 Fetch Pending Orders (API)
   const fetchPendingOrders = async () => {
     try {
       setLoading(true);
@@ -37,11 +36,14 @@ const PendingOrder = () => {
         {
           headers: {
             Authorization: `Bearer ${token}`,
+            Accept: "application/json",
           },
         }
       );
 
+      console.log("API Status:", response.status);
       const data = await response.json();
+      console.log("Pending Orders:", data);
 
       if (!data || !data.orders?.data || data.orders.data.length === 0) {
         setError("No pending orders found");
@@ -50,9 +52,9 @@ const PendingOrder = () => {
       }
 
       setOrders(data.orders.data);
-    } catch (error) {
+    } catch (err) {
       setError("Failed to load orders");
-      console.log(error);
+      console.log(err);
     } finally {
       setLoading(false);
     }
@@ -62,10 +64,11 @@ const PendingOrder = () => {
     fetchPendingOrders();
   }, []);
 
+  // 🔍 Search filter
   const filteredOrders = orders.filter(
     (item) =>
       item.code?.toLowerCase().includes(search.toLowerCase()) ||
-      item.customer_name?.toLowerCase().includes(search.toLowerCase())
+      item.customer?.name?.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -95,8 +98,10 @@ const PendingOrder = () => {
           renderItem={({ item }) => (
             <View style={styles.card}>
               <Text style={styles.title}>Order #{item.code}</Text>
-              <Text>Customer: {item.customer_name}</Text>
-              <Text>Total: Rs {item.grand_total}</Text>
+              <Text>Customer: {item.customer?.name || item.customer_name}</Text>
+              <Text>Total: Rs {item.grand_total || item.order_amount}</Text>
+              <Text>Payment Status: {item.payment_status}</Text>
+              <Text>Shipping Type: {item.shipping_type}</Text>
             </View>
           )}
         />

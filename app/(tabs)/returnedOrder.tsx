@@ -36,11 +36,14 @@ const ReturnedOrder = () => {
         {
           headers: {
             Authorization: `Bearer ${token}`,
+            Accept: "application/json",
           },
         }
       );
 
+      console.log("API Status:", response.status);
       const data = await response.json();
+      console.log("Returned Orders:", data);
 
       if (!data || !data.orders?.data || data.orders.data.length === 0) {
         setError("No returned orders found");
@@ -61,9 +64,11 @@ const ReturnedOrder = () => {
     fetchReturnedOrders();
   }, []);
 
+  // 🔍 Search filter
   const filteredOrders = orders.filter(
     (item) =>
       item.code?.toLowerCase().includes(search.toLowerCase()) ||
+      item.customer?.name?.toLowerCase().includes(search.toLowerCase()) ||
       item.customer_name?.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -94,8 +99,10 @@ const ReturnedOrder = () => {
           renderItem={({ item }) => (
             <View style={styles.card}>
               <Text style={styles.title}>Order #{item.code}</Text>
-              <Text>Customer: {item.customer_name}</Text>
-              <Text>Total: Rs {item.grand_total}</Text>
+              <Text>Customer: {item.customer?.name || item.customer_name}</Text>
+              <Text>Total: Rs {item.grand_total || item.order_amount}</Text>
+              <Text>Payment Status: {item.payment_status}</Text>
+              <Text>Shipping Type: {item.shipping_type}</Text>
             </View>
           )}
         />

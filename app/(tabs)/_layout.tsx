@@ -182,6 +182,16 @@ export default function TabLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="shippingMethod"
+        options={{
+          // title: "Account",
+          href: null,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person-circle-outline" size={size} color={color} />
+          ),
+        }}
+      />
     </Tabs>
   );
 }

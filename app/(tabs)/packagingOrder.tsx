@@ -19,7 +19,6 @@ const PackedOrder = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // 🔥 Fetch Pending (Packaging) Orders API
   const fetchPackedOrders = async () => {
     try {
       setLoading(true);
@@ -37,11 +36,14 @@ const PackedOrder = () => {
         {
           headers: {
             Authorization: `Bearer ${token}`,
+            Accept: "application/json",
           },
         }
       );
 
+      console.log("API Status:", response.status);
       const data = await response.json();
+      console.log("Packed Orders:", data);
 
       if (!data || !data.orders?.data || data.orders.data.length === 0) {
         setError("No pending orders found");
@@ -50,9 +52,9 @@ const PackedOrder = () => {
       }
 
       setOrders(data.orders.data);
-    } catch (error) {
+    } catch (err) {
       setError("Something went wrong");
-      console.log(error);
+      console.log(err);
     } finally {
       setLoading(false);
     }
@@ -65,7 +67,7 @@ const PackedOrder = () => {
   const filteredOrders = orders.filter(
     (item) =>
       item.code?.toLowerCase().includes(search.toLowerCase()) ||
-      item.customer_name?.toLowerCase().includes(search.toLowerCase())
+      item.customer?.name?.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -95,8 +97,10 @@ const PackedOrder = () => {
           renderItem={({ item }) => (
             <View style={styles.card}>
               <Text style={styles.title}>Order #{item.code}</Text>
-              <Text>Customer: {item.customer_name}</Text>
-              <Text>Total: Rs {item.grand_total}</Text>
+              <Text>Customer: {item.customer?.name}</Text>
+              <Text>Total Amount: Rs {item.order_amount}</Text>
+              <Text>Payment Status: {item.payment_status}</Text>
+              <Text>Shipping Type: {item.shipping_type}</Text>
             </View>
           )}
         />

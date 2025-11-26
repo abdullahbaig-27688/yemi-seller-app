@@ -7,20 +7,22 @@ import {
   FlatList,
   Image,
   Pressable,
+  TouchableOpacity,
 } from "react-native";
-import { router, Router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import HomeHeader from "@/components/Header";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import HomeHeader from "@/components/Header";
+import VerticalMenu from "@/components/verticalmenu";
+
 const icons = {
   pending: require("@/assets/images/icons/pending.png"),
   confirmed: require("@/assets/images/icons/confirmed.png"),
   packaging: require("@/assets/images/icons/packaging.png"),
   delivery: require("@/assets/images/icons/out-of-delivery.png"),
   deliverd: require("@/assets/images/icons/delivered.png"),
-
   cancelled: require("@/assets/images/icons/canceled.png"),
   returned: require("@/assets/images/icons/returned.png"),
   failed: require("@/assets/images/icons/failed-to-deliver.png"),
@@ -32,12 +34,6 @@ const icons = {
   collectedCash: require("@/assets/images/icons/cc.png"),
 };
 
-const recentOrders = [
-  { id: "1", customer: "John Doe", amount: "₦20,000", status: "Pending" },
-  { id: "2", customer: "Jane Smith", amount: "₦15,000", status: "Delivered" },
-  { id: "3", customer: "Mike Johnson", amount: "₦8,000", status: "Shipped" },
-];
-
 const statusCards = [
   { id: "1", title: "Pending", status: "20", icon: icons.pending },
   { id: "2", title: "Confirmed", status: "30", icon: icons.confirmed },
@@ -46,7 +42,6 @@ const statusCards = [
   { id: "5", title: "Delivered", status: "30", icon: icons.deliverd },
   { id: "6", title: "Returned", status: "5", icon: icons.returned },
   { id: "7", title: "Failed to Deliver", status: "0", icon: icons.failed },
-
   { id: "8", title: "Cancelled", status: "40", icon: icons.cancelled },
 ];
 
@@ -55,59 +50,35 @@ const quickActions = [
     id: "1",
     title: "Withdrawable Balance",
     ammount: "200$",
-    // icon: "wallet-outline",
     icon: icons.withdraw,
   },
   {
     id: "2",
     title: "Pending Withdraw",
     ammount: "300$",
-    // icon: "hourglass-outline",
     icon: icons.peningWithdraw,
   },
   {
     id: "3",
     title: "Already Withdrawn",
     ammount: "400$",
-    // icon: "checkmark-circle-outline",
     icon: icons.alreadyWithdrawn,
   },
   {
     id: "4",
     title: "Total Delievery Charge Earned",
     ammount: "100$",
-    // icon: "cash-outline",
     icon: icons.delieveryCharges,
   },
-  {
-    id: "5",
-    title: "Total Tax Given",
-    ammount: "60$",
-    // icon: "receipt-outline",
-    icon: icons.taxGiven,
-  },
+  { id: "5", title: "Total Tax Given", ammount: "60$", icon: icons.taxGiven },
   {
     id: "6",
     title: "Collected Cash",
     ammount: "500$",
-    // icon: "pricetag-outline",
     icon: icons.collectedCash,
   },
-  // { id: "7", title: "View Analytics" },
-  // { id: "8", title: "View Analytics" },
 ];
 
-// Array of different orange gradients
-// const gradients = [
-//   ["#FFA500", "#FF8C00"],
-//   ["#FF9A3C", "#FF7F50"],
-//   ["#FFB347", "#FF8C00"],
-//   ["#FF9966", "#FF6600"],
-//   ["#FFA64D", "#FF8000"],
-//   ["#FFAD5C", "#FF7518"],
-//   ["#FFAA33", "#FF8800"],
-//   ["#FF8C42", "#FF5722"],
-// ];
 const gradients = [
   ["#F6F5F6", "#F2F4F5"],
   ["#F6F5F6", "#F2F4F5"],
@@ -121,44 +92,64 @@ const gradients = [
 
 const HomeScreen = () => {
   const [displayName, setDisplayName] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [menuVisible, setMenuVisible] = useState(false);
+
   useEffect(() => {
     const fetchUser = async () => {
-      try {
-        const userData = await AsyncStorage.getItem("user");
-        console.log("📦 Stored User Data:", userData);
-        if (userData) {
-          const parsedUser = JSON.parse(userData);
-          setDisplayName(
-            parsedUser?.name ||
-              parsedUser?.username ||
-              parsedUser?.email ||
-              "Vendor"
-          );
-        } else {
-          setDisplayName("Vendor");
-        }
-      } catch (err) {
-        console.error("⚠️ Error loading user:", err);
-        setDisplayName("Vendor");
-      } finally {
-        setLoading(false);
-      }
+      const userData = await AsyncStorage.getItem("user");
+      if (userData) {
+        const parsedUser = JSON.parse(userData);
+        setDisplayName(parsedUser?.name || parsedUser?.username || "Vendor");
+      } else setDisplayName("Vendor");
     };
     fetchUser();
   }, []);
+
+  const toggleMenu = () => setMenuVisible((prev) => !prev);
+
+  const handleMenuSelect = (screen) => {
+    setMenuVisible(false);
+    alert(`Navigate to ${screen}`);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
-      <HomeHeader title="Dashboard" />
+      {/* Header with Hamburger */}
+      <View style={styles.header}>
+        <Pressable onPress={toggleMenu} style={styles.hamburger}>
+          <Ionicons name="menu" size={20} color="#fff" />
+        </Pressable>
+        <HomeHeader title="Dashboard" />
+      </View>
+
+      {/* Vertical Menu Overlay */}
+      {menuVisible && (
+        <Pressable
+          style={styles.menuOverlay}
+          onPress={() => setMenuVisible(false)} // click outside closes menu
+        >
+          <View style={styles.menuContainer}>
+            <VerticalMenu
+              onSelect={(screen) => {
+                handleMenuSelect(screen);
+              }}
+            />
+          </View>
+        </Pressable>
+      )}
+
+      {/* Main Content */}
       <ScrollView
         showsVerticalScrollIndicator={false}
-        style={styles.content}
-        contentContainerStyle={{ paddingBottom: "30%" }}
+        contentContainerStyle={{ padding: 20, paddingBottom: "30%" }}
       >
         <Text style={styles.greeting}>Hello, {displayName}</Text>
-        <Text>Track and analyze your business performance with powerful insights and statistics..</Text>
+        <Text>
+          Track and analyze your business performance with powerful insights and
+          statistics.
+        </Text>
 
-        {/* Order Status Cards */}
+        {/* Order Status */}
         <Text style={styles.sectionTitle}>Order Status</Text>
         <FlatList
           data={statusCards}
@@ -202,7 +193,6 @@ const HomeScreen = () => {
                   }}
                 />
                 <Text style={styles.statusText}>{item.title}</Text>
-                {/* <Text style={styles.statusAmmount}>{item.status}</Text> */}
               </LinearGradient>
             </Pressable>
           )}
@@ -212,20 +202,6 @@ const HomeScreen = () => {
           }}
           scrollEnabled={false}
         />
-
-        {/* Recent Orders */}
-        {/* <Text style={styles.sectionTitle}>Recent Orders</Text>
-        <FlatList
-          data={recentOrders}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <View style={styles.orderCard}>
-              <Text style={styles.orderCustomer}>{item.customer}</Text>
-              <Text style={styles.orderAmount}>{item.amount}</Text>
-              <Text style={styles.orderStatus}>{item.status}</Text>
-            </View>
-          )}
-        /> */}
 
         {/* Quick Actions */}
         <Text style={styles.sectionTitle}>Quick Actions</Text>
@@ -238,12 +214,6 @@ const HomeScreen = () => {
               colors={gradients[index % gradients.length]}
               style={styles.statusCard}
             >
-              {/* <Ionicons
-                name={item.icon}
-                size={26}
-                color="#FA8232"
-                style={{ marginBottom: 6 }}
-              /> */}
               <Image
                 source={item.icon}
                 style={{
@@ -272,6 +242,33 @@ export default HomeScreen;
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FA8232",
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+  },
+  hamburger: { marginRight: 5 },
+  menuOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0, // cover full width
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.3)", // semi-transparent overlay
+    zIndex: 10,
+    flexDirection: "row",
+  },
+
+  menuContainer: {
+    width: 250, // menu width
+    height: "100%",
+    backgroundColor: "#FA8232",
+    paddingTop: 50,
+    paddingHorizontal: 20,
+  },
+
   content: { padding: 20 },
   greeting: { fontSize: 24, fontWeight: "600", marginBottom: 16 },
   sectionTitle: {
@@ -284,7 +281,6 @@ const styles = StyleSheet.create({
     flex: 1,
     marginHorizontal: 3,
     height: 100,
-    // borderWidth:1,
     borderRadius: 10,
     justifyContent: "center",
     alignItems: "center",
@@ -301,13 +297,4 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     textAlign: "center",
   },
-  orderCard: {
-    backgroundColor: "#f9f9f9",
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 10,
-  },
-  orderCustomer: { fontSize: 16, fontWeight: "500" },
-  orderAmount: { fontSize: 14, color: "#333" },
-  orderStatus: { fontSize: 14, color: "#FA8232", marginTop: 4 },
 });

@@ -17,7 +17,7 @@ const DeliveredOrders = () => {
   const [search, setSearch] = useState("");
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(""); // ✅ error/message state
+  const [error, setError] = useState(""); // error/message state
 
   const fetchDeliveredOrders = async () => {
     try {
@@ -36,14 +36,17 @@ const DeliveredOrders = () => {
         {
           headers: {
             Authorization: `Bearer ${token}`,
+            Accept: "application/json",
           },
         }
       );
 
+      console.log("API Status:", response.status);
       const data = await response.json();
+      console.log("Delivered Orders:", data);
 
       if (!data || !data.orders?.data || data.orders.data.length === 0) {
-        setError("No delivered orders found"); // ✅ empty state message
+        setError("No delivered orders found");
         setOrders([]);
         return;
       }
@@ -65,7 +68,7 @@ const DeliveredOrders = () => {
   const filteredOrders = orders.filter(
     (item) =>
       item.code?.toLowerCase().includes(search.toLowerCase()) ||
-      item.customer_name?.toLowerCase().includes(search.toLowerCase())
+      item.customer?.name?.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -85,7 +88,7 @@ const DeliveredOrders = () => {
       {loading ? (
         <ActivityIndicator size="large" style={{ marginTop: 20 }} />
       ) : error ? (
-        <Text style={styles.message}>{error}</Text> // ✅ display empty/error message
+        <Text style={styles.message}>{error}</Text>
       ) : filteredOrders.length === 0 ? (
         <Text style={styles.message}>
           No delivered orders match your search
@@ -97,8 +100,10 @@ const DeliveredOrders = () => {
           renderItem={({ item }) => (
             <View style={styles.card}>
               <Text style={styles.title}>Order #{item.code}</Text>
-              <Text>Customer: {item.customer_name}</Text>
-              <Text>Total: Rs {item.grand_total}</Text>
+              <Text>Customer: {item.customer?.name}</Text>
+              <Text>Total Amount: Rs {item.order_amount}</Text>
+              <Text>Payment Status: {item.payment_status}</Text>
+              <Text>Shipping Type: {item.shipping_type}</Text>
             </View>
           )}
         />
