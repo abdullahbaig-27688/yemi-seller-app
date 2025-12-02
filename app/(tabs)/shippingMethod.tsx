@@ -37,6 +37,9 @@ const ShippingMethod = () => {
     { label: "Product Wise", value: "product_wise" },
     { label: "Shipping Wise", value: "shipping_wise" },
   ];
+  const saveCategoryCosts = async () => {
+    await updateCategoryCost();
+  };
 
   // Fetch token
   useEffect(() => {
@@ -148,6 +151,57 @@ const ShippingMethod = () => {
     }
   };
 
+  // -------------------------
+  // UPDATE CATEGORY WISE COST
+  // -------------------------
+  const updateCategoryCost = async () => {
+    if (!categories.length) return;
+
+    const ids = categories.map((cat) => cat.id);
+    const costs = categories.map((cat) => cat.cost || 0);
+    const multiply_qty = categories.map((cat) => cat.multiply_with_qty || 0);
+
+    try {
+      setCategoryLoading(true);
+
+      const response = await fetch(
+        `https://yemi.store/api/v2/seller/shipping/set-category-cost?${ids
+          .map((id, i) => `ids[]=${id}`)
+          .join("&")}&${costs
+          .map((c, i) => `cost[]=${c}`)
+          .join("&")}&${multiply_qty
+          .map((m, i) => `multiply_qty[]=${m}`)
+          .join("&")}`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+          },
+        }
+      );
+
+      const text = await response.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        return Alert.alert("Error", "Invalid server response.");
+      }
+
+      if (response.ok) {
+        Alert.alert("Success", "Category costs updated successfully!");
+      } else {
+        Alert.alert("Error", data.message || "Failed to update category costs");
+      }
+    } catch (err) {
+      console.log("Update Category Cost Error:", err);
+      Alert.alert("Error", "Something went wrong.");
+    } finally {
+      setCategoryLoading(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <ShipMethodHeader
@@ -156,7 +210,9 @@ const ShippingMethod = () => {
         onLeftPress={() => router.back()}
       />
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: 100 }]}
+      >
         <Text style={styles.label}>Select Shipping Method:</Text>
 
         {/* Method Picker */}
@@ -266,6 +322,10 @@ const ShippingMethod = () => {
                 </View>
               ))
             )}
+            {/* ← Add Save Button here */}
+            <Pressable style={styles.button} onPress={saveCategoryCosts}>
+              <Text style={styles.buttonText}>Save Category Costs</Text>
+            </Pressable>
           </View>
         )}
 

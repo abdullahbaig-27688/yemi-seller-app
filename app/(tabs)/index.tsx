@@ -243,13 +243,15 @@ export default HomeScreen;
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
   header: {
-    flexDirection: "row",
+    // flexDirection: "row",
+    justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#FA8232",
-    paddingHorizontal: 10,
+    // paddingHorizontal: 10,
     paddingVertical: 10,
+    position: "relative",
   },
-  hamburger: { marginRight: 5 },
+  hamburger: { position: "absolute", left: 10,top:45, padding: 5, zIndex: 20 },
   menuOverlay: {
     position: "absolute",
     top: 0,

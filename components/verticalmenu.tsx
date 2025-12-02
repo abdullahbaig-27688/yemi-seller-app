@@ -1,12 +1,40 @@
 import { router } from "expo-router";
 import React from "react";
-import { View, Text, StyleSheet, Pressable } from "react-native";
+import { View, Text, StyleSheet, Pressable, Alert } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 interface VerticalMenuProps {
   onSelect: (menuItem: string) => void;
 }
 
 const VerticalMenu: React.FC<VerticalMenuProps> = ({ onSelect }) => {
+  // Logout handler
+  const handleLogout = async () => {
+    Alert.alert(
+      "Logout",
+      "Are you sure you want to logout?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Logout",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              // Clear all auth info
+              await AsyncStorage.removeItem("seller_token");
+              await AsyncStorage.removeItem("userProfile");
+
+              // Navigate to login and remove all previous screens
+              router.replace("/loginScreen");
+            } catch (error) {
+              console.log("Logout error:", error);
+            }
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  };
   return (
     <View style={styles.container}>
       {/* <Text style={styles.menuHead}>Order Management</Text>
@@ -24,13 +52,19 @@ const VerticalMenu: React.FC<VerticalMenuProps> = ({ onSelect }) => {
       <Pressable onPress={() => onSelect("Settings")} style={styles.menuItem}>
         <Text style={styles.menuText}>Wihdraws</Text>
       </Pressable>
-      <Pressable onPress={() => onSelect("Logout")} style={styles.menuItem}>
+      <Pressable
+        onPress={() => router.push("/(tabs)/bankInformation")}
+        style={styles.menuItem}
+      >
         <Text style={styles.menuText}>Bank Information</Text>
       </Pressable>
-      <Pressable onPress={() => onSelect("Logout")} style={styles.menuItem}>
+      <Pressable
+        onPress={() => router.push("/(tabs)/shopSetting")}
+        style={styles.menuItem}
+      >
         <Text style={styles.menuText}>Shop Setting</Text>
       </Pressable>
-      <Pressable onPress={() => onSelect("Logout")} style={styles.menuItem}>
+      <Pressable onPress={handleLogout} style={styles.menuItem}>
         <Text style={styles.menuText}>Logout</Text>
       </Pressable>
     </View>
