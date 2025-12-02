@@ -11,6 +11,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import BankHeader from "@/components/Header";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const BankInfoScreen = () => {
@@ -116,7 +117,7 @@ const BankInfoScreen = () => {
       <BankHeader
         title="Bank Information"
         leftIcon="arrow-back"
-        onLeftPress={() => setIsEditing(false)}
+        onLeftPress={() => router.back()}
       />
 
       {/* Card */}

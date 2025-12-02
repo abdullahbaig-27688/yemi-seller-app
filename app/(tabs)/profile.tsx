@@ -122,98 +122,106 @@ const Profile = () => {
   }
 
   return (
-    <ScrollView
-      contentContainerStyle={[styles.container, { paddingBottom: 100 }]}
-    >
-      {/* Basic Information Section */}
-      {/* <Text style={styles.sectionTitle}>Basic Information</Text> */}
-
-      <SafeAreaView style={styles.content}>
+    <SafeAreaView>
+      <ScrollView
+        contentContainerStyle={[styles.container, { paddingBottom: 100 }]}
+      >
+        {/* Basic Information Section */}
+        {/* <Text style={styles.sectionTitle}>Basic Information</Text> */}
         <ProfileHeader
           title="Basic Information"
           leftIcon="arrow-back"
           onLeftPress={() => router.back()}
         />
-        <Pressable onPress={handleChooseImage} style={styles.imageWrapper}>
-          <Image
-            source={
-              profile.profileImage
-                ? { uri: profile.profileImage }
-                : require("@/assets/images/profile.png")
-            }
-            style={styles.profileImage}
-          />
-          <Text style={styles.changePhotoText}>Change Photo</Text>
-        </Pressable>
 
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>First Name</Text>
-          <TextInput
-            style={styles.input}
-            value={profile.firstName}
-            onChangeText={(text) => setProfile({ ...profile, firstName: text })}
-          />
+        <View style={styles.content}>
+          <Pressable onPress={handleChooseImage} style={styles.imageWrapper}>
+            <Image
+              source={
+                profile.profileImage
+                  ? { uri: profile.profileImage }
+                  : require("@/assets/images/profile.png")
+              }
+              style={styles.profileImage}
+            />
+            <Text style={styles.changePhotoText}>Change Photo</Text>
+          </Pressable>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>First Name</Text>
+            <TextInput
+              style={styles.input}
+              value={profile.firstName}
+              onChangeText={(text) =>
+                setProfile({ ...profile, firstName: text })
+              }
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Last Name</Text>
+            <TextInput
+              style={styles.input}
+              value={profile.lastName}
+              onChangeText={(text) =>
+                setProfile({ ...profile, lastName: text })
+              }
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Email</Text>
+            <TextInput
+              style={styles.input}
+              value={profile.email}
+              onChangeText={(text) => setProfile({ ...profile, email: text })}
+              keyboardType="email-address"
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Phone</Text>
+            <TextInput
+              style={styles.input}
+              value={profile.phone}
+              onChangeText={(text) => setProfile({ ...profile, phone: text })}
+              keyboardType="phone-pad"
+            />
+          </View>
+
+          {/* Change Password Section */}
+          <Text style={styles.sectionTitle}>Change Password</Text>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Password</Text>
+            <TextInput
+              style={styles.input}
+              value={profile.password}
+              onChangeText={(text) =>
+                setProfile({ ...profile, password: text })
+              }
+              secureTextEntry={true}
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Confirm Password</Text>
+            <TextInput
+              style={styles.input}
+              value={profile.confirmPassword}
+              onChangeText={(text) =>
+                setProfile({ ...profile, confirmPassword: text })
+              }
+              secureTextEntry={true}
+            />
+          </View>
+
+          <Pressable style={styles.saveButton} onPress={handleSave}>
+            <Text style={styles.saveButtonText}>Save</Text>
+          </Pressable>
         </View>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Last Name</Text>
-          <TextInput
-            style={styles.input}
-            value={profile.lastName}
-            onChangeText={(text) => setProfile({ ...profile, lastName: text })}
-          />
-        </View>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Email</Text>
-          <TextInput
-            style={styles.input}
-            value={profile.email}
-            onChangeText={(text) => setProfile({ ...profile, email: text })}
-            keyboardType="email-address"
-          />
-        </View>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Phone</Text>
-          <TextInput
-            style={styles.input}
-            value={profile.phone}
-            onChangeText={(text) => setProfile({ ...profile, phone: text })}
-            keyboardType="phone-pad"
-          />
-        </View>
-
-        {/* Change Password Section */}
-        <Text style={styles.sectionTitle}>Change Password</Text>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Password</Text>
-          <TextInput
-            style={styles.input}
-            value={profile.password}
-            onChangeText={(text) => setProfile({ ...profile, password: text })}
-            secureTextEntry={true}
-          />
-        </View>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Confirm Password</Text>
-          <TextInput
-            style={styles.input}
-            value={profile.confirmPassword}
-            onChangeText={(text) =>
-              setProfile({ ...profile, confirmPassword: text })
-            }
-            secureTextEntry={true}
-          />
-        </View>
-
-        <Pressable style={styles.saveButton} onPress={handleSave}>
-          <Text style={styles.saveButtonText}>Save</Text>
-        </Pressable>
-      </SafeAreaView>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 

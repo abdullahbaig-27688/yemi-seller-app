@@ -1,18 +1,21 @@
-import React, { useState, useEffect } from "react";
+import ShopInfoHeader from "@/components/Header";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import moment from "moment";
+import React, { useEffect, useState } from "react";
 import {
-  View,
-  Text,
+  ActivityIndicator,
+  Alert,
+  Modal,
+  Pressable,
+  ScrollView,
   StyleSheet,
   Switch,
-  Pressable,
-  Alert,
+  Text,
   TextInput,
-  ScrollView,
-  Modal,
   TouchableOpacity,
-  ActivityIndicator,
+  View,
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const ShopSetting = () => {
   const [loading, setLoading] = useState(true);
@@ -50,6 +53,9 @@ const ShopSetting = () => {
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
+            // Prevent caching
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            Pragma: "no-cache",
           },
         }
       );
@@ -63,8 +69,9 @@ const ShopSetting = () => {
         );
         setStoreVisible(!data.temporary_close);
 
-        // Parse vacation dates
+        // Parse vacation dates - Keep as local time, don't convert
         if (data.vacation_start_date) {
+          // Parse the date string directly without timezone conversion
           setStartDate(new Date(data.vacation_start_date));
         }
         if (data.vacation_end_date) {
@@ -99,16 +106,6 @@ const ShopSetting = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  // ------------------ DATE FORMATTING ------------------
-  const formatUTCDate = (date) => {
-    const d = new Date(date);
-    const pad = (n) => n.toString().padStart(2, "0");
-    // Format as local time, not UTC
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(
-      d.getDate()
-    )} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
   };
 
   // ------------------ SIMPLE DATE PICKER ------------------
@@ -157,76 +154,54 @@ const ShopSetting = () => {
   // ------------------ API CALL ------------------
   const saveVacationSettings = async () => {
     try {
-      let apiStartDate = startDate;
-      let apiEndDate = endDate;
-      let apiDuration = duration;
-
-      if (duration === "24") {
-        apiDuration = "one_day";
-        apiEndDate = new Date(apiStartDate);
-        apiEndDate.setHours(apiEndDate.getHours() + 24);
-      }
-
-      if (duration === "change") {
-        apiDuration = "change";
-        apiEndDate = apiStartDate;
-      }
-
       const token = await AsyncStorage.getItem("seller_token");
-      if (!token) {
-        Alert.alert("Error", "No auth token found. Please login again.");
-        return;
-      }
+      if (!token) return;
 
-      // Clean the note - trim whitespace
-      const cleanNote = note.trim();
+      // Format dates as local time without UTC conversion
+      const apiStart = startDate
+        ? moment(startDate).format("YYYY-MM-DD HH:mm:ss")
+        : null;
+      const apiEnd = endDate
+        ? moment(endDate).format("YYYY-MM-DD HH:mm:ss")
+        : null;
 
-      // Build query parameters - send all at once
-      const params = new URLSearchParams({
-        vacation_start_date: formatUTCDate(apiStartDate),
-        vacation_end_date: formatUTCDate(apiEndDate),
-        vacation_duration_type: apiDuration,
-        vacation_note: cleanNote,
-        vacation_status: vacationEnabled ? "1" : "0",
-      });
+      const body = {
+        vacation_status: vacationEnabled ? 1 : 0,
+        vacation_duration_type: duration,
+        vacation_start_date: apiStart,
+        vacation_end_date: apiEnd,
+        vacation_note: note.trim(),
+      };
 
-      const url = `https://yemi.store/api/v2/seller/shop-update?${params.toString()}`;
+      console.log("📤 Sending JSON body:", body);
 
-      console.log("📤 Sending request");
-      console.log("📤 URL:", url);
-      console.log("📤 Note length:", cleanNote.length);
-      console.log("📤 Note content:", JSON.stringify(cleanNote));
-      console.log("📤 Parameters:", {
-        vacation_start_date: formatUTCDate(apiStartDate),
-        vacation_end_date: formatUTCDate(apiEndDate),
-        vacation_duration_type: apiDuration,
-        vacation_note: cleanNote,
-        vacation_status: vacationEnabled ? "1" : "0",
-      });
+      const response = await fetch(
+        "https://yemi.store/api/v2/seller/shop-update",
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(body),
+        }
+      );
 
-      const response = await fetch(url, {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const text = await response.text();
-      console.log("📥 Raw response:", text);
+      const data = await response.json();
+      console.log("📥 Response:", data);
 
       if (response.ok) {
-        Alert.alert("Success", "Vacation settings saved successfully!");
-        // Refetch to confirm changes
-        setTimeout(async () => {
-          await fetchShopSettings();
-          console.log("🔄 After refetch - Note in state:", note);
-        }, 1000);
+        Alert.alert("Success", "Vacation settings updated!");
+        // Wait a moment before fetching to ensure backend has processed
+        setTimeout(() => {
+          fetchShopSettings();
+        }, 500);
       } else {
-        Alert.alert("Error", "Something went wrong!");
+        Alert.alert("Error", JSON.stringify(data));
       }
-    } catch (error) {
-      console.error("❌ Save error:", error);
-      Alert.alert("Error", "Failed to update vacation mode.");
+    } catch (err) {
+      console.log("❌ Save error:", err);
+      Alert.alert("Error", "Something went wrong");
     }
   };
 
@@ -282,6 +257,9 @@ const ShopSetting = () => {
       ) : (
         <>
           {/* Store Visibility */}
+          <SafeAreaView>
+            <ShopInfoHeader title="Shop Info" />
+          </SafeAreaView>
           <Text style={styles.title}>Store Availability</Text>
           <Text style={styles.desc}>
             Disabling this will temporarily close your shop on the customer app
