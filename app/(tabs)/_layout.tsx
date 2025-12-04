@@ -212,8 +212,28 @@ export default function TabLayout() {
           ),
         }}
       />
-       <Tabs.Screen
+      <Tabs.Screen
         name="shopSetting"
+        options={{
+          // title: "Account",
+          href: null,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person-circle-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="otherSetup"
+        options={{
+          // title: "Account",
+          href: null,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person-circle-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="chatList"
         options={{
           // title: "Account",
           href: null,

@@ -40,7 +40,10 @@ const VerticalMenu: React.FC<VerticalMenuProps> = ({ onSelect }) => {
       {/* <Text style={styles.menuHead}>Order Management</Text>
       <Text style={styles.menuHead}>Product Management</Text> */}
       <Text style={styles.menuHead}>Help & Support</Text>
-      <Pressable onPress={() => onSelect("Home")} style={styles.menuItem}>
+      <Pressable
+        onPress={() => router.push("/(tabs)/chatList")}
+        style={styles.menuItem}
+      >
         <Text style={styles.menuText}>Inbox</Text>
       </Pressable>
       <Pressable
@@ -63,6 +66,12 @@ const VerticalMenu: React.FC<VerticalMenuProps> = ({ onSelect }) => {
         style={styles.menuItem}
       >
         <Text style={styles.menuText}>Shop Setting</Text>
+      </Pressable>
+      <Pressable
+        onPress={() => router.push("/(tabs)/otherSetup")}
+        style={styles.menuItem}
+      >
+        <Text style={styles.menuText}>Other Setups</Text>
       </Pressable>
       <Pressable onPress={handleLogout} style={styles.menuItem}>
         <Text style={styles.menuText}>Logout</Text>

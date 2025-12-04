@@ -16,6 +16,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { router } from "expo-router";
 
 const ShopSetting = () => {
   const [loading, setLoading] = useState(true);
@@ -258,7 +259,11 @@ const ShopSetting = () => {
         <>
           {/* Store Visibility */}
           <SafeAreaView>
-            <ShopInfoHeader title="Shop Info" />
+            <ShopInfoHeader
+              title="Shop Info"
+              leftIcon="arrow-back"
+              onLeftPress={() => router.back()}
+            />
           </SafeAreaView>
           <Text style={styles.title}>Store Availability</Text>
           <Text style={styles.desc}>
