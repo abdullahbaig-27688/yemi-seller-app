@@ -1,21 +1,20 @@
+import HomeHeader from "@/components/Header";
+import VerticalMenu from "@/components/verticalmenu";
+import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
   FlatList,
   Image,
   Pressable,
-  TouchableOpacity,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import HomeHeader from "@/components/Header";
-import VerticalMenu from "@/components/verticalmenu";
 
 const icons = {
   pending: require("@/assets/images/icons/pending.png"),
@@ -35,48 +34,14 @@ const icons = {
 };
 
 const statusCards = [
-  { id: "1", title: "Pending", status: "20", icon: icons.pending },
-  { id: "2", title: "Confirmed", status: "30", icon: icons.confirmed },
-  { id: "3", title: "Packaging", status: "10", icon: icons.packaging },
-  { id: "4", title: "Out for Delivery", status: "5", icon: icons.delivery },
-  { id: "5", title: "Delivered", status: "30", icon: icons.deliverd },
-  { id: "6", title: "Returned", status: "5", icon: icons.returned },
-  { id: "7", title: "Failed to Deliver", status: "0", icon: icons.failed },
-  { id: "8", title: "Cancelled", status: "40", icon: icons.cancelled },
-];
-
-const quickActions = [
-  {
-    id: "1",
-    title: "Withdrawable Balance",
-    ammount: "200$",
-    icon: icons.withdraw,
-  },
-  {
-    id: "2",
-    title: "Pending Withdraw",
-    ammount: "300$",
-    icon: icons.peningWithdraw,
-  },
-  {
-    id: "3",
-    title: "Already Withdrawn",
-    ammount: "400$",
-    icon: icons.alreadyWithdrawn,
-  },
-  {
-    id: "4",
-    title: "Total Delievery Charge Earned",
-    ammount: "100$",
-    icon: icons.delieveryCharges,
-  },
-  { id: "5", title: "Total Tax Given", ammount: "60$", icon: icons.taxGiven },
-  {
-    id: "6",
-    title: "Collected Cash",
-    ammount: "500$",
-    icon: icons.collectedCash,
-  },
+  { id: "1", title: "Pending", icon: icons.pending },
+  { id: "2", title: "Confirmed", icon: icons.confirmed },
+  { id: "3", title: "Packaging", icon: icons.packaging },
+  { id: "4", title: "Out for Delivery", icon: icons.delivery },
+  { id: "5", title: "Delivered", icon: icons.deliverd },
+  { id: "6", title: "Returned", icon: icons.returned },
+  { id: "7", title: "Failed to Deliver", icon: icons.failed },
+  { id: "8", title: "Cancelled", icon: icons.cancelled },
 ];
 
 const gradients = [
@@ -90,19 +55,147 @@ const gradients = [
   ["#F6F5F6", "#F2F4F5"],
 ];
 
+const statusEndpoints = {
+  Pending: "pending",
+  Confirmed: "confirmed",
+  Packaging: "packaging",
+  "Out for Delivery": "out-of-delivery",
+  Delivered: "delivered",
+  Returned: "returned",
+  "Failed to Deliver": "failed-to-deliver",
+  Cancelled: "canceled",
+};
+
 const HomeScreen = () => {
   const [displayName, setDisplayName] = useState("");
   const [menuVisible, setMenuVisible] = useState(false);
+  const [orderCounts, setOrderCounts] = useState({}); // dynamic counts
+  const [earnings, setEarnings] = useState({
+    totalEarning: 0,
+    withdrawn: 0,
+    pendingWithdraw: 0,
+    adminCommission: 0,
+    deliveryManChargeEarned: 0,
+    collectedCash: 0,
+    collectedTotalTax: 0,
+  });
 
+  // --- Quick Actions dynamically using API values ---
+  const quickActions = [
+    {
+      id: "1",
+      title: "Withdrawable Balance",
+      ammount: `${earnings.totalEarning - earnings.withdrawn - earnings.pendingWithdraw}$`,
+      icon: icons.withdraw,
+    },
+    {
+      id: "2",
+      title: "Pending Withdraw",
+      ammount: `${earnings.pendingWithdraw}$`,
+      icon: icons.peningWithdraw,
+    },
+    {
+      id: "3",
+      title: "Already Withdrawn",
+      ammount: `${earnings.withdrawn}$`,
+      icon: icons.alreadyWithdrawn,
+    },
+    {
+      id: "4",
+      title: "Total Commission Given",
+      ammount: `${earnings.adminCommission}$`,
+      icon: icons.alreadyWithdrawn,
+    },
+    {
+      id: "5",
+      title: "Total Delivery Charge Earned",
+      ammount: `${earnings.deliveryManChargeEarned}$`,
+      icon: icons.delieveryCharges,
+    },
+    {
+      id: "6",
+      title: "Total Tax Given",
+      ammount: `${earnings.collectedTotalTax}$`,
+      icon: icons.taxGiven,
+    },
+    {
+      id: "7",
+      title: "Collected Cash",
+      ammount: `${earnings.collectedCash}$`,
+      icon: icons.collectedCash,
+    },
+  ];
+
+  // --- Fetch user info ---
   useEffect(() => {
     const fetchUser = async () => {
-      const userData = await AsyncStorage.getItem("user");
-      if (userData) {
+      try {
+        const userData = await AsyncStorage.getItem("seller_token");
+        if (!userData) {
+          setDisplayName("Vendor");
+          return;
+        }
         const parsedUser = JSON.parse(userData);
-        setDisplayName(parsedUser?.name || parsedUser?.username || "Vendor");
-      } else setDisplayName("Vendor");
+        const name =
+          parsedUser?.firstName || parsedUser?.lastName
+            ? `${parsedUser?.firstName || ""} ${parsedUser?.lastName || ""}`.trim()
+            : parsedUser?.username || "Vendor";
+        setDisplayName(name);
+      } catch (error) {
+        console.log("fetchUser error:", error);
+        setDisplayName("Vendor");
+      }
     };
     fetchUser();
+  }, []);
+
+  // --- Fetch order counts ---
+  useEffect(() => {
+    const fetchOrderCounts = async () => {
+      const counts = {};
+      for (const [title, status] of Object.entries(statusEndpoints)) {
+        try {
+          const response = await fetch(
+            `https://yemi.store/api/v2/seller/orders/vendor/${status}?order_status=${status}&seller_id=29&seller_is=seller&page=1`
+          );
+          const data = await response.json();
+          counts[title] = data.total || 0;
+        } catch (error) {
+          console.error(`Failed to fetch ${title} orders:`, error);
+          counts[title] = 0;
+        }
+      }
+      setOrderCounts(counts);
+    };
+    fetchOrderCounts();
+  }, []);
+
+  // --- Fetch earnings ---
+  useEffect(() => {
+    const fetchEarnings = async () => {
+      try {
+        const token = await AsyncStorage.getItem("token"); // if your API requires it
+        const response = await fetch(
+          "https://yemi.store/api/v2/seller/earning-info",
+          {
+            headers: {
+              Authorization: token ? `Bearer ${token}` : "",
+              Accept: "application/json",
+            },
+          }
+        );
+        const text = await response.text();
+        try {
+          const json = JSON.parse(text);
+          if (json.success && json.data) setEarnings(json.data);
+        } catch {
+          console.error("Earnings API did not return JSON:", text);
+        }
+      } catch (error) {
+        console.error("Failed to fetch earnings:", error);
+      }
+    };
+    fetchEarnings();
   }, []);
 
   const toggleMenu = () => setMenuVisible((prev) => !prev);
@@ -112,9 +205,23 @@ const HomeScreen = () => {
     alert(`Navigate to ${screen}`);
   };
 
+  const navigateToStatusScreen = (title) => {
+    const screens = {
+      Pending: "/(tabs)/pendingOrder",
+      Confirmed: "/(tabs)/confirmedOrder",
+      Packaging: "/(tabs)/packagingOrder",
+      "Out for Delivery": "/(tabs)/deliveryOrder",
+      Delivered: "/(tabs)/deliveredOrder",
+      Returned: "/(tabs)/returnedOrder",
+      "Failed to Deliver": "/(tabs)/failedOrder",
+      Cancelled: "/cancelledOrder",
+    };
+    router.navigate(screens[title] || "/");
+  };
+
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header with Hamburger */}
+      {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={toggleMenu} style={styles.hamburger}>
           <Ionicons name="menu" size={20} color="#fff" />
@@ -122,31 +229,26 @@ const HomeScreen = () => {
         <HomeHeader title="Dashboard" />
       </View>
 
-      {/* Vertical Menu Overlay */}
+      {/* Menu Overlay */}
       {menuVisible && (
         <Pressable
           style={styles.menuOverlay}
-          onPress={() => setMenuVisible(false)} // click outside closes menu
+          onPress={() => setMenuVisible(false)}
         >
           <View style={styles.menuContainer}>
-            <VerticalMenu
-              onSelect={(screen) => {
-                handleMenuSelect(screen);
-              }}
-            />
+            <VerticalMenu onSelect={handleMenuSelect} />
           </View>
         </Pressable>
       )}
 
-      {/* Main Content */}
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ padding: 20, paddingBottom: "30%" }}
       >
         <Text style={styles.greeting}>Hello, {displayName}</Text>
         <Text>
-          Track and analyze your business performance with powerful insights and
-          statistics.
+          Track and analyze your business performance with powerful insights
+          and statistics.
         </Text>
 
         {/* Order Status */}
@@ -157,25 +259,7 @@ const HomeScreen = () => {
           numColumns={2}
           renderItem={({ item, index }) => (
             <Pressable
-              onPress={() => {
-                if (item.title === "Pending")
-                  router.navigate("/(tabs)/pendingOrder");
-                else if (item.title === "Confirmed")
-                  router.navigate("/(tabs)/confirmedOrder");
-                else if (item.title === "Packaging")
-                  router.navigate("/(tabs)/packagingOrder");
-                else if (item.title === "Out for Delivery")
-                  router.navigate("/(tabs)/deliveryOrder");
-                else if (item.title === "Delivered")
-                  router.navigate("/(tabs)/deliveredOrder");
-                else if (item.title === "Returned")
-                  router.navigate("/(tabs)/returnedOrder");
-                else if (item.title === "Failed to Deliver")
-                  router.navigate("/(tabs)/failedOrder");
-                else if (item.title === "Cancelled")
-                  router.navigate("/cancelledOrder");
-                else alert(`No screen set for ${item.title}`);
-              }}
+              onPress={() => navigateToStatusScreen(item.title)}
               activeOpacity={0.8}
               style={{ flex: 1 }}
             >
@@ -193,6 +277,9 @@ const HomeScreen = () => {
                   }}
                 />
                 <Text style={styles.statusText}>{item.title}</Text>
+                <Text style={styles.statusNumber}>
+                  {orderCounts[item.title] ?? 0}
+                </Text>
               </LinearGradient>
             </Pressable>
           )}
@@ -243,42 +330,32 @@ export default HomeScreen;
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
   header: {
-    // flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#FA8232",
-    // paddingHorizontal: 10,
     paddingVertical: 10,
     position: "relative",
   },
-  hamburger: { position: "absolute", left: 10,top:45, padding: 5, zIndex: 20 },
+  hamburger: { position: "absolute", left: 10, top: 45, padding: 5, zIndex: 20 },
   menuOverlay: {
     position: "absolute",
     top: 0,
     left: 0,
-    right: 0, // cover full width
+    right: 0,
     bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.3)", // semi-transparent overlay
+    backgroundColor: "rgba(0,0,0,0.3)",
     zIndex: 10,
     flexDirection: "row",
   },
-
   menuContainer: {
-    width: 250, // menu width
+    width: 250,
     height: "100%",
     backgroundColor: "#FA8232",
     paddingTop: 50,
     paddingHorizontal: 20,
   },
-
-  content: { padding: 20 },
   greeting: { fontSize: 24, fontWeight: "600", marginBottom: 16 },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    marginTop: 20,
-    marginBottom: 8,
-  },
+  sectionTitle: { fontSize: 18, fontWeight: "600", marginTop: 20, marginBottom: 8 },
   statusCard: {
     flex: 1,
     marginHorizontal: 3,
@@ -286,6 +363,12 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     justifyContent: "center",
     alignItems: "center",
+  },
+  statusNumber: {
+    color: "#FA8232",
+    fontSize: 16,
+    fontWeight: "bold",
+    marginTop: 4,
   },
   statusAmmount: {
     color: "#FA8232",

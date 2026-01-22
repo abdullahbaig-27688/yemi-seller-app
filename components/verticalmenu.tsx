@@ -1,7 +1,7 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import React from "react";
-import { View, Text, StyleSheet, Pressable, Alert } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 
 interface VerticalMenuProps {
   onSelect: (menuItem: string) => void;
@@ -52,7 +52,7 @@ const VerticalMenu: React.FC<VerticalMenuProps> = ({ onSelect }) => {
       >
         <Text style={styles.menuText}>Shipping Methods</Text>
       </Pressable>
-      <Pressable onPress={() => onSelect("Settings")} style={styles.menuItem}>
+      <Pressable onPress={() => router.push("/(tabs)/withdraw")} style={styles.menuItem}>
         <Text style={styles.menuText}>Wihdraws</Text>
       </Pressable>
       <Pressable

@@ -6,13 +6,18 @@ import { router } from "expo-router";
 import React, { useState } from "react";
 import {
   Alert,
-  ScrollView,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+
 import CountryPicker from "react-native-country-picker-modal";
 import Svg, { Path } from "react-native-svg";
 
@@ -130,121 +135,136 @@ const SignUpScreen = () => {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Svg style={styles.toShape} viewBox="0 0 200 200">
-        <Path
-          fill="#8aa2dfff"
-          d="M47.7,-62.7C62.6,-52.5,77.1,-39.5,83.4,-22.4C89.7,-5.2,87.7,16,75.4,27.9C63.1,39.8,40.5,42.4,21.3,50.6C2,58.9,-13.8,72.9,-30.7,72.8C-47.7,72.8,-65.8,58.8,-75.8,40.3C-85.8,21.7,-87.7,-1.4,-78.7,-18.7C-69.7,-36,-49.9,-47.6,-32.1,-58.1C-14.3,-68.6,1.4,-78,18.8,-80.4C36.2,-82.7,55.2,-77.3,47.7,-62.7Z"
-          transform="translate(100 100)"
-        />
-      </Svg>
-
-      <Svg style={styles.midShape} viewBox="0 0 200 200">
-        <Path
-          fill="#FA8232"
-          d="M47.7,-62.7C62.6,-52.5,77.1,-39.5,83.4,-22.4C89.7,-5.2,87.7,16,75.4,27.9C63.1,39.8,40.5,42.4,21.3,50.6C2,58.9,-13.8,72.9,-30.7,72.8C-47.7,72.8,-65.8,58.8,-75.8,40.3C-85.8,21.7,-87.7,-1.4,-78.7,-18.7C-69.7,-36,-49.9,-47.6,-32.1,-58.1C-14.3,-68.6,1.4,-78,18.8,-80.4C36.2,-82.7,55.2,-77.3,47.7,-62.7Z"
-          transform="translate(100 100)"
-        />
-      </Svg>
-
-      <Text style={styles.title}> Create Account </Text>
-
-      {/* Input Fields */}
-      <View style={styles.mainview}>
-        {/* Email Field */}
-        <RegisterField
-          placeholder="Enter Email"
-          value={email}
-          onChangeText={setEmail}
-        />
-
-        {/* Register Field */}
-        <RegisterField
-          placeholder="Enter Password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
-        {/* First Name Field */}
-        <RegisterField
-          placeholder="Enter First Name"
-          value={firstName}
-          onChangeText={setFirstName}
-        />
-        {/* Last Name Field */}
-        <RegisterField
-          placeholder="Enter Last Name"
-          value={lastName}
-          onChangeText={setLastName}
-        />
-        {/* </View> */}
-
-        {/* Phone with country picker */}
-        <View style={styles.inputview}>
-          <CountryPicker
-            countryCode={countryCode}
-            withFlag
-            withCallingCode
-            withFilter
-            withEmoji
-            onSelect={(country) => {
-              setCountryCode(country.cca2);
-              setCallingCode(country.callingCode[0]);
-            }}
-          />
-          <Text style={styles.countryCode}>+{callingCode}</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter your Number"
-            keyboardType="phone-pad"
-            value={phone}
-            onChangeText={setPhone}
-          />
-        </View>
-
-        {/* Shop Name Fields */}
-        <RegisterField
-          placeholder="Enter Shop Name"
-          value={shopName}
-          onChangeText={setShopName}
-        />
-        {/* Shop Address Field */}
-        <RegisterField
-          placeholder="Enter Shop Address"
-          value={shopAddress}
-          onChangeText={setShopAddress}
-        />
-
-        {/* File Uploads */}
-        <TouchableOpacity
-          style={styles.uploadBtn}
-          onPress={() => pickImage(setLogo)}
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <KeyboardAwareScrollView
+          contentContainerStyle={styles.container}
+          keyboardShouldPersistTaps="handled"
+          enableOnAndroid
+          extraScrollHeight={20}
+          showsVerticalScrollIndicator={false}
         >
-          <Text>{logo ? "✔ Logo Selected" : "Upload Logo"}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.uploadBtn}
-          onPress={() => pickImage(setImage)}
-        >
-          <Text>{image ? "✔ Image Selected" : "Upload Image"}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.uploadBtn}
-          onPress={() => pickImage(setBanner)}
-        >
-          <Text>{banner ? "✔ Banner Selected" : "Upload Banner"}</Text>
-        </TouchableOpacity>
-      </View>
 
-      <View style={styles.buttonRow}>
-        <PrimaryButton
-          title="Cancel"
-          onPress={() => router.back()}
-          variant="outline"
-        />
-        <PrimaryButton title="Next" onPress={handleSignup} variant="primary" />
-      </View>
-    </ScrollView>
+          <Svg style={styles.toShape} viewBox="0 0 200 200">
+            <Path
+              fill="#8aa2dfff"
+              d="M47.7,-62.7C62.6,-52.5,77.1,-39.5,83.4,-22.4C89.7,-5.2,87.7,16,75.4,27.9C63.1,39.8,40.5,42.4,21.3,50.6C2,58.9,-13.8,72.9,-30.7,72.8C-47.7,72.8,-65.8,58.8,-75.8,40.3C-85.8,21.7,-87.7,-1.4,-78.7,-18.7C-69.7,-36,-49.9,-47.6,-32.1,-58.1C-14.3,-68.6,1.4,-78,18.8,-80.4C36.2,-82.7,55.2,-77.3,47.7,-62.7Z"
+              transform="translate(100 100)"
+            />
+          </Svg>
+
+          <Svg style={styles.midShape} viewBox="0 0 200 200">
+            <Path
+              fill="#FA8232"
+              d="M47.7,-62.7C62.6,-52.5,77.1,-39.5,83.4,-22.4C89.7,-5.2,87.7,16,75.4,27.9C63.1,39.8,40.5,42.4,21.3,50.6C2,58.9,-13.8,72.9,-30.7,72.8C-47.7,72.8,-65.8,58.8,-75.8,40.3C-85.8,21.7,-87.7,-1.4,-78.7,-18.7C-69.7,-36,-49.9,-47.6,-32.1,-58.1C-14.3,-68.6,1.4,-78,18.8,-80.4C36.2,-82.7,55.2,-77.3,47.7,-62.7Z"
+              transform="translate(100 100)"
+            />
+          </Svg>
+
+          <Text style={styles.title}> Create Account </Text>
+
+          {/* Input Fields */}
+          <View style={styles.mainview}>
+            {/* Email Field */}
+            <RegisterField
+              placeholder="Enter Email"
+              value={email}
+              onChangeText={setEmail}
+            />
+
+            {/* Register Field */}
+            <RegisterField
+              placeholder="Enter Password"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+            />
+            {/* First Name Field */}
+            <RegisterField
+              placeholder="Enter First Name"
+              value={firstName}
+              onChangeText={setFirstName}
+            />
+            {/* Last Name Field */}
+            <RegisterField
+              placeholder="Enter Last Name"
+              value={lastName}
+              onChangeText={setLastName}
+            />
+            {/* </View> */}
+
+            {/* Phone with country picker */}
+            <View style={styles.inputview}>
+              <CountryPicker
+                countryCode={countryCode}
+                withFlag
+                withCallingCode
+                withFilter
+                withEmoji
+                onSelect={(country) => {
+                  setCountryCode(country.cca2);
+                  setCallingCode(country.callingCode[0]);
+                }}
+              />
+              <Text style={styles.countryCode}>+{callingCode}</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter your Number"
+                keyboardType="phone-pad"
+                value={phone}
+                onChangeText={setPhone}
+              />
+            </View>
+
+            {/* Shop Name Fields */}
+            <RegisterField
+              placeholder="Enter Shop Name"
+              value={shopName}
+              onChangeText={setShopName}
+            />
+            {/* Shop Address Field */}
+            <RegisterField
+              placeholder="Enter Shop Address"
+              value={shopAddress}
+              onChangeText={setShopAddress}
+            />
+
+            {/* File Uploads */}
+            <TouchableOpacity
+              style={styles.uploadBtn}
+              onPress={() => pickImage(setLogo)}
+            >
+              <Text>{logo ? "✔ Logo Selected" : "Upload Logo"}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.uploadBtn}
+              onPress={() => pickImage(setImage)}
+            >
+              <Text>{image ? "✔ Image Selected" : "Upload Image"}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.uploadBtn}
+              onPress={() => pickImage(setBanner)}
+            >
+              <Text>{banner ? "✔ Banner Selected" : "Upload Banner"}</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.buttonRow}>
+            <PrimaryButton
+              title="Cancel"
+              onPress={() => router.back()}
+              variant="outline"
+            />
+            <PrimaryButton title="Next" onPress={handleSignup} variant="primary" />
+          </View>
+        </KeyboardAwareScrollView>
+      </TouchableWithoutFeedback>
+    </KeyboardAvoidingView>
+
   );
 };
 
@@ -253,7 +273,8 @@ export default SignUpScreen;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    // justifyContent: "center",
+    justifyContent: "center",
+
     paddingHorizontal: 16,
     paddingVertical: 20,
     backgroundColor: "white",
@@ -275,9 +296,10 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 40,
-    fontWeight: "700",
+    fontWeight: 700,
     color: "#202020",
     marginBottom: 20,
+    marginTop: 200,
   },
   mainview: {
     marginBottom: 10,
@@ -318,7 +340,8 @@ const styles = StyleSheet.create({
   buttonRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    gap: 10,
-    marginTop: 20,
+    gap: 5,
+    // marginTop: 20,
+    marginBottom: 40
   },
 });

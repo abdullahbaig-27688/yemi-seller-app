@@ -1,23 +1,22 @@
+import AddProductHeader from "@/components/Header";
+import ImagePickerBox from "@/components/imagePickerBox";
+import Input from "@/components/input";
+import PrimaryButton from "@/components/primaryButton";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Picker } from "@react-native-picker/picker";
+import axios from "axios";
+import * as FileSystem from "expo-file-system/legacy";
+import * as ImagePicker from "expo-image-picker";
+import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
   ScrollView,
   StyleSheet,
   Text,
-  View,
-  Platform,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import * as ImagePicker from "expo-image-picker";
-import * as FileSystem from "expo-file-system/legacy";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Picker } from "@react-native-picker/picker";
-import AddProductHeader from "@/components/Header";
-import ImagePickerBox from "@/components/imagePickerBox";
-import Input from "@/components/input";
-import PrimaryButton from "@/components/primaryButton";
-import { router } from "expo-router";
-import axios from "axios";
 
 const AddProduct = () => {
   const [name, setName] = useState("");
@@ -38,11 +37,15 @@ const AddProduct = () => {
   const [tax, setTax] = useState("0");
   const [taxCalculation, setTaxCalculation] = useState("");
   const [shippingCost, setShippingCost] = useState("0");
-  // const [unit, setUnit] = useState("");
   const [purchasePrice, setPurchasePrice] = useState("");
   const [thumbnail, setThumbnail] = useState<any>(null);
   const [images, setImages] = useState<any[]>([]);
   const [isPublishing, setIsPublishing] = useState(false);
+
+  // Digital product specific fields
+  const [author, setAuthor] = useState("");
+  const [publishingHouse, setPublishingHouse] = useState("");
+  const [deliveryType, setDeliveryType] = useState("");
 
   // ------------------ Permissions ------------------
   useEffect(() => {
@@ -81,7 +84,7 @@ const AddProduct = () => {
   }, []);
 
   // ------------------ Submit Handler ------------------
-  
+
   const handleAddProduct = async (publish: boolean) => {
     try {
       const token = await AsyncStorage.getItem("seller_token");
@@ -108,8 +111,14 @@ const AddProduct = () => {
       formData.append("lang", "en");
       formData.append("purchase_price", purchasePrice);
       formData.append("shipping_cost", shippingCost);
-      // formData.append("unit", unit);
       formData.append("published", publish ? "1" : "0");
+
+      // Add digital product fields if product type is digital
+      if (productType.toLowerCase() === "digital") {
+        formData.append("author", author);
+        formData.append("publishing_house", publishingHouse);
+        formData.append("delivery_type", deliveryType);
+      }
 
       // Thumbnail
       if (thumbnail?.uri) {
@@ -186,12 +195,12 @@ const AddProduct = () => {
               setThumbnail(
                 uris[0]
                   ? {
-                      uri: uris[0].startsWith("file://")
-                        ? uris[0]
-                        : `file://${uris[0]}`,
-                      type: "image/jpeg",
-                      name: "thumbnail.jpg",
-                    }
+                    uri: uris[0].startsWith("file://")
+                      ? uris[0]
+                      : `file://${uris[0]}`,
+                    type: "image/jpeg",
+                    name: "thumbnail.jpg",
+                  }
                   : null
               )
             }
@@ -214,7 +223,7 @@ const AddProduct = () => {
             value={description}
             onChangeText={setDescription}
             multiline
-            
+
             inputStyle={{ textAlignVertical: "top", height: 120 }}
           />
         </View>
@@ -285,13 +294,43 @@ const AddProduct = () => {
             <Picker
               selectedValue={productType}
               onValueChange={(value) => setProductType(value)}
-              // mode="dropdown"
             >
-              {/* <Picker.Item label="All" value="All" /> */}
               <Picker.Item label="Physical" value="Physical" />
               <Picker.Item label="Digital" value="Digital" />
             </Picker>
           </View>
+
+          {/* Digital Product Specific Fields */}
+          {productType.toLowerCase() === "digital" && (
+            <>
+              <Input
+                label="Author"
+                value={author}
+                onChangeText={setAuthor}
+                required={true}
+              />
+              <Input
+                label="Publishing House"
+                value={publishingHouse}
+                onChangeText={setPublishingHouse}
+                required={true}
+              />
+              <Text style={styles.inputLabel}>
+                Delivery Type <Text style={styles.requiredStar}>*</Text>
+              </Text>
+              <View style={styles.inputForm}>
+                <Picker
+                  selectedValue={deliveryType}
+                  onValueChange={(itemValue) => setDeliveryType(itemValue)}
+                >
+                  <Picker.Item label="Select Delivery Type" value="" />
+                  <Picker.Item label="Ready after Sell" value="ready after sell" />
+                  <Picker.Item label="Ready Product" value="ready product" />
+
+                </Picker>
+              </View>
+            </>
+          )}
 
           {/* Product SKU Code Field */}
           <Input

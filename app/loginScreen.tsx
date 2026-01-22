@@ -10,8 +10,7 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  View,
-  ScrollView,
+  View
 } from "react-native";
 import Svg, { Path } from "react-native-svg";
 const LoginScreen = ({ navigation }: any) => {
@@ -20,78 +19,7 @@ const LoginScreen = ({ navigation }: any) => {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  // const handleLogin = async () => {
-  //   if (!email || !password) {
-  //     Alert.alert("Error", "Please enter both email and password");
-  //     return;
-  //   }
 
-  //   setLoading(true);
-  //   try {
-  //     const loginRes = await axios.post(
-  //       "https://yemi.store/api/v2/seller/auth/login",
-  //       { email, password },
-  //       {
-  //         headers: {
-  //           Accept: "application/json",
-  //           "Content-Type": "application/json",
-  //         },
-  //       }
-  //     );
-
-  //     console.log("Login response:", loginRes.data);
-
-  //     // ✅ Extract token
-  //     const token = loginRes.data?.token || loginRes.data?.access_token;
-  //     if (!token) throw new Error("No token received from server");
-
-  //     // ✅ Save token
-  //     await AsyncStorage.setItem("seller_token", token);
-  //     console.log("✅ Token saved successfully:", token);
-
-  //     // ✅ Optionally fetch user profile
-  //     const profileRes = await axios.get(
-  //       "https://yemi.store/api/v2/seller/seller-info",
-  //       { headers: { Authorization: `Bearer ${token}` } }
-  //     );
-
-  //     const user = profileRes.data;
-  //     const safeUserData = {
-  //       id: user.id,
-  //       f_name: user.f_name,
-  //       l_name: user.l_name,
-  //       email: user.email,
-  //       phone: user.phone,
-  //       image: user.image_full_url?.path || null,
-  //       token: token,
-  //       status: user.status,
-  //     };
-
-  //     await AsyncStorage.setItem(
-  //       "seller_profile",
-  //       JSON.stringify(safeUserData)
-  //     );
-  //     // await AsyncStorage.setItem(
-  //     //   "seller_profile",
-  //     //   JSON.stringify(profileRes.data)
-  //     // );
-  //     console.log("👤 User profile saved:", safeUserData);
-
-  //     Alert.alert("Success", "Login successful!");
-  //     router.replace("/(tabs)"); // Navigate to main tabs
-  //   } catch (error: any) {
-  //     console.log(
-  //       "🔴 Login error full:",
-  //       error.response?.data || error.message
-  //     );
-  //     Alert.alert(
-  //       "Login Failed",
-  //       error.response?.data?.message ?? "Invalid credentials"
-  //     );
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -212,7 +140,7 @@ const LoginScreen = ({ navigation }: any) => {
 
       <Pressable
         onPress={() => {
-          router.push("/recoverpassword"); // 👈 Navigate to Forgot Password screen
+          router.push("/forgotPassword"); // 👈 Navigate to Forgot Password screen
         }}
       >
         <Text style={styles.forgotPasswordtext}>Forgot Password</Text>
@@ -224,7 +152,7 @@ const LoginScreen = ({ navigation }: any) => {
           onPress={() => router.back()}
           variant="outline"
         />
-        <PrimaryButton title="Log IN" onPress={handleLogin} variant="primary" />
+        <PrimaryButton title="Login" onPress={handleLogin} variant="primary" />
       </View>
 
       <View style={styles.bottomShape}></View>
@@ -237,7 +165,7 @@ export default LoginScreen;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    // justifyContent: "center",
+    justifyContent: "center",
     paddingHorizontal: 16,
     backgroundColor: "white",
   },
@@ -267,7 +195,7 @@ const styles = StyleSheet.create({
   },
 
   title: {
-    fontSize: 50,
+    fontSize: 40,
     fontWeight: 700,
     color: "#202020",
     marginBottom: 20,

@@ -30,6 +30,7 @@ export default function RootLayout() {
           <Stack.Screen name="index" />
           <Stack.Screen name="registerScreen" />
           <Stack.Screen name="loginScreen" />
+          <Stack.Screen name="forgotPassword" />
           <Stack.Screen name="addProduct" />
           <Stack.Screen name="tab" />
           {/* Add your other screens here (e.g., addProduct, inventory, etc.) */}

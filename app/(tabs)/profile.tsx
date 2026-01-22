@@ -1,20 +1,20 @@
-import React, { useState, useEffect } from "react";
-import {
-  View,
-  Text,
-  Image,
-  Pressable,
-  TextInput,
-  StyleSheet,
-  Alert,
-  ScrollView,
-  ActivityIndicator,
-} from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { SafeAreaView } from "react-native-safe-area-context";
 import ProfileHeader from "@/components/Header";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
+import React, { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const API_URL = "https://yemi.store/api/v2/seller/seller-info";
 
@@ -104,13 +104,77 @@ const Profile = () => {
     }
 
     try {
-      await AsyncStorage.setItem("userProfile", JSON.stringify(profile));
-      Alert.alert("Success", "Profile saved locally");
-      // TODO: Send updated profile and password to backend
+      const token = await AsyncStorage.getItem("seller_token");
+      if (!token) {
+        Alert.alert("Error", "No authentication token found");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("f_name", profile.firstName);
+      formData.append("l_name", profile.lastName);
+      formData.append("email", profile.email);
+      formData.append("phone", profile.phone);
+
+      if (profile.password) {
+        formData.append("password", profile.password);
+      }
+
+      if (profile.profileImage && profile.profileImage.startsWith("file")) {
+        const filename = profile.profileImage.split("/").pop();
+        const match = /\.(\w+)$/.exec(filename);
+        const type = match ? `image/${match[1]}` : "image";
+
+        formData.append("image", {
+          uri: profile.profileImage,
+          name: filename,
+          type,
+        });
+      }
+
+      // ✅ Remove manual Content-Type
+      const response = await fetch(
+        "https://yemi.store/api/v2/seller/seller-update",
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+          },
+          body: formData,
+        }
+      );
+
+      const json = await response.json();
+      console.log("Profile update response:", json);
+
+      if (json.success) {
+        Alert.alert("Success", json.message || "Profile updated successfully");
+        await AsyncStorage.setItem("userProfile", JSON.stringify(profile));
+      } else {
+        Alert.alert("Error", json.message || "Failed to update profile");
+      }
     } catch (error) {
-      Alert.alert("Error", "Failed to save profile");
+      console.error("Update profile error:", error);
+      Alert.alert("Error", "An unexpected error occurred");
     }
   };
+
+
+  // const handleSave = async () => {
+  //   if (profile.password && profile.password !== profile.confirmPassword) {
+  //     Alert.alert("Error", "Passwords do not match");
+  //     return;
+  //   }
+
+  //   try {
+  //     await AsyncStorage.setItem("userProfile", JSON.stringify(profile));
+  //     Alert.alert("Success", "Profile saved locally");
+  //     // TODO: Send updated profile and password to backend
+  //   } catch (error) {
+  //     Alert.alert("Error", "Failed to save profile");
+  //   }
+  // };
 
   if (loading) {
     return (
