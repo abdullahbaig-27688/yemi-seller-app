@@ -275,8 +275,9 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
 
+
     paddingHorizontal: 16,
-    paddingVertical: 20,
+    paddingVertical: 40,
     backgroundColor: "white",
   },
   toShape: {
@@ -342,6 +343,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 5,
     // marginTop: 20,
-    marginBottom: 40
+    marginBottom: 150
   },
 });
