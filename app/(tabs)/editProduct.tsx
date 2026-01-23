@@ -3,6 +3,7 @@ import ImagePickerBox from "@/components/imagePickerBox";
 import Input from "@/components/input";
 import PrimaryButton from "@/components/primaryButton";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Picker } from "@react-native-picker/picker";
 import axios from "axios";
 import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams } from "expo-router";
@@ -267,6 +268,219 @@ const EditProduct = () => {
             onChangeText={setDescription}
             multiline
             inputStyle={{ textAlignVertical: "top", height: 120 }}
+          />
+        </View>
+        {/* Category & Brand */}
+        <Text style={styles.info}>General Setup</Text>
+        <View style={styles.setup}>
+          {/* Select Category */}
+          <Text style={styles.inputLabel}>
+            Select Category <Text style={styles.requiredStar}>*</Text>
+          </Text>
+          <View style={styles.inputForm}>
+            <Picker
+              selectedValue={selectedCategory}
+              onValueChange={(value) => {
+                setSelectedCategory(value);
+                setSubCategoryId("");
+                setSubSubCategoryId("");
+              }}
+            >
+              <Picker.Item label="Select Category" value="" />
+
+              {Array.isArray(categories) &&
+                categories.map((cat) => (
+                  <Picker.Item key={cat.id} label={cat.name} value={cat.id} />
+                ))}
+
+            </Picker>
+
+
+          </View>
+          {/* Select Sub-Category */}
+          <Text style={styles.inputLabel}>Select Sub Category</Text>
+          <View style={styles.inputForm}>
+            <Picker
+              selectedValue={selectedCategory}
+              onValueChange={(itemValue) => setSelectedCategory(itemValue)}
+            >
+              <Picker.Item label="Select Sub Category" value="" />
+              {categories.map((cat) => (
+                <Picker.Item key={cat.id} label={cat.name} value={cat.id} />
+              ))}
+            </Picker>
+          </View>
+
+          {/* Select sub-sub category */}
+          <Text style={styles.inputLabel}>Sub-Sub Category</Text>
+          <View style={styles.inputForm}>
+            <Picker
+              selectedValue={selectedCategory}
+              onValueChange={(itemValue) => setSelectedCategory(itemValue)}
+            >
+              <Picker.Item label="Select Sub Sub Category" value="" />
+              {brands.map((b) => (
+                <Picker.Item key={b.id} label={b.name} value={b.id} />
+              ))}
+            </Picker>
+          </View>
+          {/* Select Brand */}
+          <Text style={styles.inputLabel}>Brand</Text>
+          <View style={styles.inputForm}>
+            <Picker
+              selectedValue={brandId}
+              onValueChange={(value) => setBrandId(value)}
+            >
+              <Picker.Item label="Select Brand" value="" />
+
+              {Array.isArray(brands) &&
+                brands.map((b) => (
+                  <Picker.Item
+                    key={b.id}
+                    label={b.name}
+                    value={b.id}
+                  />
+                ))}
+            </Picker>
+
+
+          </View>
+          {/* Product Type Field */}
+          <Text style={styles.inputLabel}>
+            Product Type <Text style={styles.requiredStar}>*</Text>
+          </Text>
+          <View style={styles.inputForm}>
+            <Picker
+              selectedValue={productType}
+              onValueChange={(value) => setProductType(value)}
+            >
+              <Picker.Item label="Physical" value="Physical" />
+              <Picker.Item label="Digital" value="Digital" />
+            </Picker>
+          </View>
+
+          {/* Digital Product Specific Fields */}
+          {productType.toLowerCase() === "digital" && (
+            <>
+              <Input
+                label="Author"
+                value={author}
+                onChangeText={setAuthor}
+                required={true}
+              />
+              <Input
+                label="Publishing House"
+                value={publishingHouse}
+                onChangeText={setPublishingHouse}
+                required={true}
+              />
+              <Text style={styles.inputLabel}>
+                Delivery Type <Text style={styles.requiredStar}>*</Text>
+              </Text>
+              <View style={styles.inputForm}>
+                <Picker
+                  selectedValue={deliveryType}
+                  onValueChange={(itemValue) => setDeliveryType(itemValue)}
+                >
+                  <Picker.Item label="Select Delivery Type" value="" />
+                  <Picker.Item label="Ready after Sell" value="ready after sell" />
+                  <Picker.Item label="Ready Product" value="ready product" />
+
+                </Picker>
+              </View>
+            </>
+          )}
+
+          {/* Product SKU Code Field */}
+          <Input
+            label="Product SKU"
+            value={code}
+            onChangeText={setCode}
+            required={true}
+          />
+        </View>
+
+        {/* Pricing & Inventory */}
+        <Text style={styles.price}>Pricing & Inventory</Text>
+        <View style={styles.information}>
+          {/* Unit Price Field */}
+          <Input
+            label="Unit Price ($)"
+            value={unitPrice}
+            onChangeText={setUnitPrice}
+            required={true}
+            keyboardType="phone-pad"
+          />
+          {/* MOQ Field */}
+          <Input
+            label="Minimum Order Qty"
+            value={minimumOrderQty}
+            onChangeText={setMinimumOrderQty}
+            required={true}
+            keyboardType="phone-pad"
+          />
+          {/* Current Stock Field */}
+          <Input
+            label="Current Stock Qty"
+            value={currentStock}
+            onChangeText={setCurrentStock}
+            required={true}
+            keyboardType="phone-pad"
+          />
+          {/* Discount Type Field */}
+          <Text style={styles.inputLabel}>Discount Type</Text>
+          <View style={styles.inputForm}>
+            <Picker
+              selectedValue={discountType}
+              onValueChange={(itemValue) => setDiscountType(itemValue)}
+            >
+              <Picker.Item label="Select Discount Type" value="" />
+              <Picker.Item label="Flat" value="flat" />
+              <Picker.Item label="Percentage" value="percentage" />
+            </Picker>
+          </View>
+          {/* Discount Amount Field */}
+          <Input
+            label="Discount Amount ($)"
+            value={discount}
+            onChangeText={setDiscount}
+            keyboardType="phone-pad"
+          />
+          {/* Tax Amount Field */}
+          <Input
+            label="Tax Amount (%)"
+            value={tax}
+            onChangeText={setTax}
+            required={true}
+            keyboardType="phone-pad"
+          />
+
+          {/* Tax calculation Field */}
+          <Text style={styles.inputLabel}>Tax calculation</Text>
+          <View style={styles.inputForm}>
+            <Picker
+              selectedValue={taxCalculation}
+              onValueChange={(itemValue) => setTaxCalculation(itemValue)}
+            >
+              <Picker.Item label="Select Tax Calculation" value="" />
+              <Picker.Item label="Include with Product" value="include" />
+              <Picker.Item label="Exclude with Product" value="exclude" />
+            </Picker>
+          </View>
+          <Input
+            label="Purchase Price ($)"
+            value={purchasePrice}
+            onChangeText={setPurchasePrice}
+            required={true}
+            keyboardType="phone-pad"
+          />
+          {/* Shipping Cost Field*/}
+          <Input
+            label="Shipping Cost ($)"
+            value={shippingCost}
+            onChangeText={setShippingCost}
+            required={true}
+            keyboardType="phone-pad"
           />
         </View>
 
