@@ -1,9 +1,8 @@
 import ProductsHeader from "@/components/Header";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useRouter, useFocusEffect } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
-import { SearchParams } from "expo-router";
 import {
   ActivityIndicator,
   Alert,
@@ -17,7 +16,6 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useSearchParams } from "expo-router/build/hooks";
 
 const MyProducts = () => {
   const [products, setProducts] = useState<any[]>([]);
@@ -26,12 +24,12 @@ const MyProducts = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
-  const params = useSearchParams();
+  const params = useLocalSearchParams();
   const updatedProductParam =
     (params as any).updatedProduct ??
     (params as URLSearchParams).get?.("updatedProduct");
 
- 
+
 
   const fetchProducts = async (
     isRefreshing = false,
@@ -326,9 +324,7 @@ const MyProducts = () => {
         ) : (
           <FlatList
             data={products}
-            keyExtractor={(item) =>
-              item.id?.toString() || Math.random().toString()
-            }
+            keyExtractor={(item) => item.id?.toString() || Math.random().toString()}
             showsVerticalScrollIndicator={false}
             refreshControl={
               <RefreshControl
@@ -339,7 +335,15 @@ const MyProducts = () => {
               />
             }
             renderItem={({ item }) => (
-              <View style={styles.card}>
+              <Pressable
+                onPress={() =>
+                  router.push({
+                    pathname: "/productDetails", // your product detail screen
+                    params: { productId: item.id.toString() },
+                  })
+                }
+                style={styles.card}
+              >
                 <Image
                   source={getProductImage(item)}
                   style={styles.productImage}
@@ -356,30 +360,38 @@ const MyProducts = () => {
                   </Text>
                   {renderStatusLabel(item)}
                 </View>
+
+                {/* Buttons container */}
                 <View style={styles.buttonContainer}>
-                  {/* This is edit icon */}
+                  {/* Edit button */}
                   <Pressable
-                    onPress={() =>
+                    onPress={(e) => {
+                      e.stopPropagation(); // prevent card navigation
                       router.push({
                         pathname: "/editProduct",
                         params: { productId: item.id.toString() },
-                      })
-                    }
+                      });
+                    }}
                     style={styles.editButton}
                   >
                     <Ionicons name="pencil" size={16} color="#fff" />
                   </Pressable>
-                  {/* This is delete icon  */}
+
+                  {/* Delete button */}
                   <Pressable
-                    onPress={() => handleDeleteProduct(item.id)}
+                    onPress={(e) => {
+                      e.stopPropagation(); // prevent card navigation
+                      handleDeleteProduct(item.id);
+                    }}
                     style={styles.deleteButton}
                   >
                     <Ionicons name="trash" size={16} color="#fff" />
                   </Pressable>
                 </View>
-              </View>
+              </Pressable>
             )}
           />
+
         )}
       </View>
     </SafeAreaView>

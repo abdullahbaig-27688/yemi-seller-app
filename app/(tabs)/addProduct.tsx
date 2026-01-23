@@ -62,26 +62,84 @@ const AddProduct = () => {
   }, []);
 
   // ------------------ Fetch Categories ------------------
-  useEffect(() => {
-    fetch("https://yemi.store/api/v1/categories")
-      .then((res) => res.json())
-      .then((data) => setCategories(data))
-      .catch((err) => console.error("Error fetching categories:", err));
-  }, []);
 
-  // ------------------ Fetch Brands ------------------
   useEffect(() => {
-    const fetchBrands = async () => {
+    const fetchCategories = async () => {
       try {
-        const res = await fetch("https://yemi.store/api/v1/brands");
-        const data = await res.json();
-        setBrands(data.brands || []);
+        const token = await AsyncStorage.getItem("seller_token");
+        const res = await fetch("https://yemi.store/api/v1/categories", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+          },
+        });
+
+        const text = await res.text();
+        console.log("📦 Categories raw:", text);
+
+        const data = JSON.parse(text);
+
+        if (Array.isArray(data)) {
+          setCategories(data);
+        } else {
+          setCategories([]);
+          console.warn("Categories not array:", data);
+        }
       } catch (err) {
-        console.error("Failed to fetch brands:", err);
+        console.error("Error fetching categories:", err);
+        setCategories([]);
       }
     };
+
+    fetchCategories();
+  }, []);
+
+
+
+
+  // ------------------ Fetch Brands ------------------
+
+  useEffect(() => {
+
+    const fetchBrands = async () => {
+
+      try {
+        const token = await AsyncStorage.getItem("seller_token");
+        const res = await fetch("https://yemi.store/api/v1/brands", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+          },
+        });
+
+        const text = await res.text();
+        console.log("📦 Brands raw:", text);
+
+        const data = JSON.parse(text);
+
+        if (Array.isArray(data.brands)) {
+          setBrands(data.brands);
+        } else {
+          setBrands([]);
+          console.warn("Brands not array:", data);
+        }
+      } catch (err) {
+        console.error("Error fetching brands:", err);
+        setBrands([]);
+      }
+    };
+
     fetchBrands();
   }, []);
+
+
+
+  useEffect(() => {
+    console.log("Categories:", categories);
+    console.log("Brands:", brands);
+  }, [categories, brands]);
+
+
 
   // ------------------ Submit Handler ------------------
 
@@ -238,13 +296,22 @@ const AddProduct = () => {
           <View style={styles.inputForm}>
             <Picker
               selectedValue={selectedCategory}
-              onValueChange={(itemValue) => setSelectedCategory(itemValue)}
+              onValueChange={(value) => {
+                setSelectedCategory(value);
+                setSubCategoryId("");
+                setSubSubCategoryId("");
+              }}
             >
               <Picker.Item label="Select Category" value="" />
-              {categories.map((cat) => (
-                <Picker.Item key={cat.id} label={cat.name} value={cat.id} />
-              ))}
+
+              {Array.isArray(categories) &&
+                categories.map((cat) => (
+                  <Picker.Item key={cat.id} label={cat.name} value={cat.id} />
+                ))}
+
             </Picker>
+
+
           </View>
           {/* Select Sub-Category */}
           <Text style={styles.inputLabel}>Select Sub Category</Text>
@@ -278,13 +345,21 @@ const AddProduct = () => {
           <View style={styles.inputForm}>
             <Picker
               selectedValue={brandId}
-              onValueChange={(itemValue) => setBrandId(itemValue)}
+              onValueChange={(value) => setBrandId(value)}
             >
               <Picker.Item label="Select Brand" value="" />
-              {brands.map((b) => (
-                <Picker.Item key={b.id} label={b.name} value={b.id} />
-              ))}
+
+              {Array.isArray(brands) &&
+                brands.map((b) => (
+                  <Picker.Item
+                    key={b.id}
+                    label={b.name}
+                    value={b.id}
+                  />
+                ))}
             </Picker>
+
+
           </View>
           {/* Product Type Field */}
           <Text style={styles.inputLabel}>
