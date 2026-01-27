@@ -72,6 +72,15 @@ const Profile = () => {
             "userProfile",
             JSON.stringify(updatedProfile)
           );
+
+          // 5. Check if profile is incomplete
+          if (!data.f_name && !data.l_name) {
+            Alert.alert(
+              "Complete Your Profile",
+              "Please add your name to complete your profile.",
+              [{ text: "OK" }]
+            );
+          }
         } else {
           console.warn("Failed to fetch profile:", response.status);
         }
