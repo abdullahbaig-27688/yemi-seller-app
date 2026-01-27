@@ -8,11 +8,11 @@ import axios from "axios";
 import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const EditProduct = () => {
-  const { productId } = useLocalSearchParams(); // Get product ID from route
+  const { productId } = useLocalSearchParams();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [categories, setCategories] = useState<any[]>([]);
@@ -32,9 +32,11 @@ const EditProduct = () => {
   const [taxCalculation, setTaxCalculation] = useState("");
   const [shippingCost, setShippingCost] = useState("0");
   const [purchasePrice, setPurchasePrice] = useState("");
+  const [unit, setUnit] = useState("pc"); // Add this with other state variables
   const [thumbnail, setThumbnail] = useState<any>(null);
   const [images, setImages] = useState<any[]>([]);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Digital product fields
   const [author, setAuthor] = useState("");
@@ -89,20 +91,57 @@ const EditProduct = () => {
 
   // ------------------ Fetch Product Data ------------------
   useEffect(() => {
-    if (!productId) return;
+    if (!productId) {
+      Alert.alert("Error", "No product ID provided");
+      router.back();
+      return;
+    }
 
     const fetchProduct = async () => {
       try {
+        setIsLoading(true);
         const token = await AsyncStorage.getItem("seller_token");
+
+        console.log("🔍 Fetching product ID:", productId);
+
+        // Fetch all products from the list endpoint
         const res = await axios.get(
-          `https://yemi.store/api/v2/seller/products/${productId}`,
+          `https://yemi.store/api/v2/seller/products/list`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
 
-        const product = res.data;
+        console.log("✅ Products response received");
 
-        setName(product.name);
-        setDescription(product.description);
+        // Extract products array from response
+        let productsArray: any[] = [];
+        if (Array.isArray(res.data)) {
+          productsArray = res.data;
+        } else if (Array.isArray(res.data.products)) {
+          productsArray = res.data.products;
+        } else if (Array.isArray(res.data.products?.data)) {
+          productsArray = res.data.products.data;
+        }
+
+        console.log("📦 Total products:", productsArray.length);
+
+        // Find the specific product by ID
+        const product = productsArray.find(
+          (p: any) => p.id?.toString() === productId?.toString()
+        );
+
+        if (!product) {
+          console.log("❌ Product not found in list");
+          Alert.alert("Error", "Product not found", [
+            { text: "OK", onPress: () => router.back() }
+          ]);
+          return;
+        }
+
+        console.log("✅ Found product:", product.name);
+
+        // Populate all fields
+        setName(product.name || "");
+        setDescription(product.description || "");
         setSelectedCategory(product.category_id?.toString() || "");
         setSubCategoryId(product.sub_category_id?.toString() || "");
         setSubSubCategoryId(product.sub_sub_category_id?.toString() || "");
@@ -118,20 +157,58 @@ const EditProduct = () => {
         setTaxCalculation(product.tax_calculation || "");
         setShippingCost(product.shipping_cost?.toString() || "0");
         setPurchasePrice(product.purchase_price?.toString() || "");
-
-        // Digital product
+        // In fetchProduct, add this line:
+        setUnit(product.unit || "pc");
+        // Digital product fields
         setAuthor(product.author || "");
         setPublishingHouse(product.publishing_house || "");
         setDeliveryType(product.delivery_type || "");
 
-        // Thumbnail & Images
-        if (product.thumbnail) setThumbnail({ uri: product.thumbnail, name: "thumbnail.jpg", type: "image/jpeg" });
-        if (Array.isArray(product.images))
-          setImages(product.images.map((img: string, i: number) => ({ uri: img, name: `image_${i}.jpg`, type: "image/jpeg" })));
+        // Thumbnail
+        if (product.thumbnail) {
+          setThumbnail({
+            uri: product.thumbnail,
+            name: "thumbnail.jpg",
+            type: "image/jpeg"
+          });
+        } else if (product.thumbnail_full_url?.path) {
+          setThumbnail({
+            uri: product.thumbnail_full_url.path,
+            name: "thumbnail.jpg",
+            type: "image/jpeg"
+          });
+        }
+
+        // Images
+        if (Array.isArray(product.images)) {
+          setImages(
+            product.images.map((img: string, i: number) => ({
+              uri: img,
+              name: `image_${i}.jpg`,
+              type: "image/jpeg"
+            }))
+          );
+        } else if (Array.isArray(product.images_full_url)) {
+          setImages(
+            product.images_full_url
+              .filter((img: any) => img?.path)
+              .map((img: any, i: number) => ({
+                uri: img.path,
+                name: `image_${i}.jpg`,
+                type: "image/jpeg"
+              }))
+          );
+        }
+
+        console.log("✅ Product data loaded successfully");
 
       } catch (err: any) {
-        console.error("Error fetching product:", err.response?.data || err.message);
-        Alert.alert("Error", "Failed to fetch product data.");
+        console.error("❌ Error fetching product:", err.response?.data || err.message);
+        Alert.alert("Error", "Failed to fetch product data.", [
+          { text: "OK", onPress: () => router.back() }
+        ]);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -141,6 +218,29 @@ const EditProduct = () => {
   // ------------------ Update Product Handler ------------------
   const handleUpdateProduct = async () => {
     if (!productId) return;
+
+    // Validation
+    if (!name.trim()) {
+      Alert.alert("Validation Error", "Product name is required");
+      return;
+    }
+    if (!unitPrice || parseFloat(unitPrice) <= 0) {
+      Alert.alert("Validation Error", "Valid unit price is required");
+      return;
+    }
+    if (!selectedCategory) {
+      Alert.alert("Validation Error", "Please select a category");
+      return;
+    }
+    if (!code.trim() || code.trim().length < 6) {
+      Alert.alert("Validation Error", "Product code must be at least 6 characters");
+      return;
+    }
+    if (!unit.trim()) {
+      Alert.alert("Validation Error", "Unit is required (e.g., pc, kg, liter)");
+      return;
+    }
+
     try {
       setIsUpdating(true);
 
@@ -151,80 +251,151 @@ const EditProduct = () => {
       }
 
       const formData = new FormData();
-      formData.append("name", name);
-      formData.append("description", description);
-      formData.append("category_id", selectedCategory || "1");
+
+      // CRITICAL FOR LARAVEL: Add _method field to simulate PUT
+      formData.append("_method", "PUT");
+
+      // Basic product info
+      formData.append("name", name.trim());
+      formData.append("description", description.trim());
+      formData.append("category_id", selectedCategory.toString());
       formData.append("sub_category_id", subCategoryId || "");
       formData.append("sub_sub_category_id", subSubCategoryId || "");
-      formData.append("brand_id", brandId || "");
-      formData.append("product_type", productType);
-      formData.append("code", code || `SKU-${Date.now()}`);
+      formData.append("brand_id", brandId || "1");
+      formData.append("product_type", productType); // Keep as "Physical" or "Digital"
+      formData.append("code", code.trim());
+      formData.append("unit", unit.trim()); // ADD UNIT HERE
       formData.append("unit_price", unitPrice);
+      formData.append("purchase_price", purchasePrice || "0");
       formData.append("minimum_order_qty", minimumOrderQty);
       formData.append("current_stock", currentStock);
       formData.append("discount_type", discountType);
-      formData.append("discount", discount);
-      formData.append("tax", tax);
-      formData.append("purchase_price", purchasePrice);
-      formData.append("shipping_cost", shippingCost);
+      formData.append("discount", discount || "0");
+      formData.append("tax", tax || "0");
+      formData.append("shipping_cost", shippingCost || "0");
       formData.append("lang", "en");
 
       // Digital product fields
       if (productType.toLowerCase() === "digital") {
-        formData.append("author", author);
-        formData.append("publishing_house", publishingHouse);
-        formData.append("delivery_type", deliveryType);
+        if (author) formData.append("author", author.trim());
+        if (publishingHouse) formData.append("publishing_house", publishingHouse.trim());
+        if (deliveryType) formData.append("delivery_type", deliveryType);
       }
 
-      // Thumbnail
-      if (thumbnail?.uri) {
+      // Thumbnail - only if it's a NEW file
+      if (thumbnail?.uri && thumbnail.uri.startsWith("file://")) {
         formData.append("thumbnail", {
           uri: thumbnail.uri,
           type: thumbnail.type || "image/jpeg",
           name: thumbnail.name || "thumbnail.jpg",
-        });
+        } as any);
       }
 
-      // Images
-      images.forEach((img, i) => {
+      // Images - only NEW files
+      const newImages = images.filter(img => img.uri && img.uri.startsWith("file://"));
+      newImages.forEach((img, i) => {
         formData.append("images[]", {
           uri: img.uri,
           type: img.type || "image/jpeg",
           name: img.name || `image_${i}.jpg`,
-        });
+        } as any);
       });
 
+      console.log("🔄 Updating product ID:", productId);
+      console.log("📦 Sending FormData with _method=PUT");
+
+      // USE POST with _method=PUT for Laravel
       const res = await axios.post(
         `https://yemi.store/api/v2/seller/products/update/${productId}`,
         formData,
         {
-          headers: { Authorization: `Bearer ${token}`, "Content-Type": "multipart/form-data" },
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
+            "Accept": "application/json"
+          },
         }
       );
 
-      console.log("✅ Product updated:", res.data);
-      Alert.alert("Success", "Product updated successfully!");
-      router.back();
+      console.log("✅ Product updated successfully:", res.data);
+
+      // Check if response has errors
+      if (res.data.errors && res.data.errors.length > 0) {
+        const errorMessages = res.data.errors
+          .map((e: any) => `• ${e.message}`)
+          .join('\n');
+        Alert.alert("Validation Errors", errorMessages);
+        return;
+      }
+
+      Alert.alert(
+        "Success",
+        "Product updated successfully!",
+        [
+          {
+            text: "OK",
+            onPress: () => {
+              router.replace({
+                pathname: "/myProducts",
+                params: { refresh: Date.now().toString() }
+              });
+            }
+          }
+        ]
+      );
+
     } catch (err: any) {
+      console.log("❌ Update error occurred");
+
       if (axios.isAxiosError(err)) {
         if (err.response) {
-          console.error("❌ Axios response error:", err.response.data);
-          Alert.alert(
-            "Update Failed",
-            err.response.data?.message || JSON.stringify(err.response.data)
-          );
+          console.log("❌ Response error:", JSON.stringify(err.response.data));
+
+          const responseData = err.response.data;
+          const errors = responseData?.errors;
+
+          if (errors && Array.isArray(errors)) {
+            const errorMessages = errors
+              .map((e: any) => `• ${e.message || e.code}`)
+              .join('\n');
+            Alert.alert("Validation Errors", errorMessages);
+          } else if (responseData?.message) {
+            Alert.alert("Update Failed", responseData.message);
+          } else {
+            Alert.alert("Update Failed", "Please check all required fields");
+          }
+        } else if (err.request) {
+          console.log("❌ Network error");
+          Alert.alert("Network Error", "Please check your internet connection.");
         } else {
-          console.error("❌ Axios network/error:", err.message);
-          Alert.alert("Update Failed", `Network or server error: ${err.message}`);
+          console.log("❌ Request error:", err.message);
+          Alert.alert("Error", err.message);
         }
       } else {
-        console.error("❌ Unexpected error:", err);
-        Alert.alert("Update Failed", "An unexpected error occurred.");
+        console.log("❌ Unexpected error:", err);
+        Alert.alert("Error", "An unexpected error occurred");
       }
     } finally {
       setIsUpdating(false);
     }
   };
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <AddProductHeader
+          title="Edit Product"
+          leftIcon="arrow-back"
+          onLeftPress={() => router.back()}
+        />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#FA8232" />
+          <Text style={styles.loadingText}>Loading product data...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -234,7 +405,11 @@ const EditProduct = () => {
         onLeftPress={() => router.back()}
       />
 
-      <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: "30%" }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={{ paddingBottom: "30%" }}
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={styles.info}>Product Information</Text>
         <View style={styles.information}>
           <ImagePickerBox
@@ -242,11 +417,15 @@ const EditProduct = () => {
             onImagesChange={(uris) =>
               setThumbnail(
                 uris[0]
-                  ? { uri: uris[0].startsWith("file://") ? uris[0] : `file://${uris[0]}`, type: "image/jpeg", name: "thumbnail.jpg" }
+                  ? {
+                    uri: uris[0].startsWith("file://") ? uris[0] : `file://${uris[0]}`,
+                    type: "image/jpeg",
+                    name: "thumbnail.jpg"
+                  }
                   : null
               )
             }
-            existingImage={thumbnail?.uri} // optional prop for pre-filled image
+            existingImage={thumbnail?.uri}
           />
           <ImagePickerBox
             label="Product Images"
@@ -259,9 +438,14 @@ const EditProduct = () => {
                 }))
               )
             }
-            existingImages={images.map((i) => i.uri)} // optional prop
+            existingImages={images.map((i) => i.uri)}
           />
-          <Input label="Product Name" value={name} onChangeText={setName} required />
+          <Input
+            label="Product Name"
+            value={name}
+            onChangeText={setName}
+            required
+          />
           <Input
             label="Description"
             value={description}
@@ -270,6 +454,7 @@ const EditProduct = () => {
             inputStyle={{ textAlignVertical: "top", height: 120 }}
           />
         </View>
+
         {/* Category & Brand */}
         <Text style={styles.info}>General Setup</Text>
         <View style={styles.setup}>
@@ -281,33 +466,32 @@ const EditProduct = () => {
             <Picker
               selectedValue={selectedCategory}
               onValueChange={(value) => {
-                setSelectedCategory(value);
+                console.log("Category selected:", value);
+                setSelectedCategory(value.toString());
                 setSubCategoryId("");
                 setSubSubCategoryId("");
               }}
             >
               <Picker.Item label="Select Category" value="" />
-
               {Array.isArray(categories) &&
                 categories.map((cat) => (
-                  <Picker.Item key={cat.id} label={cat.name} value={cat.id} />
+                  <Picker.Item
+                    key={cat.id}
+                    label={cat.name}
+                    value={cat.id.toString()} // Ensure it's a string
+                  />
                 ))}
-
             </Picker>
-
-
           </View>
           {/* Select Sub-Category */}
           <Text style={styles.inputLabel}>Select Sub Category</Text>
           <View style={styles.inputForm}>
             <Picker
-              selectedValue={selectedCategory}
-              onValueChange={(itemValue) => setSelectedCategory(itemValue)}
+              selectedValue={subCategoryId}
+              onValueChange={(value) => setSubCategoryId(value)}
             >
               <Picker.Item label="Select Sub Category" value="" />
-              {categories.map((cat) => (
-                <Picker.Item key={cat.id} label={cat.name} value={cat.id} />
-              ))}
+              {/* Add subcategories here based on selectedCategory */}
             </Picker>
           </View>
 
@@ -315,36 +499,37 @@ const EditProduct = () => {
           <Text style={styles.inputLabel}>Sub-Sub Category</Text>
           <View style={styles.inputForm}>
             <Picker
-              selectedValue={selectedCategory}
-              onValueChange={(itemValue) => setSelectedCategory(itemValue)}
+              selectedValue={subSubCategoryId}
+              onValueChange={(value) => setSubSubCategoryId(value)}
             >
               <Picker.Item label="Select Sub Sub Category" value="" />
-              {brands.map((b) => (
-                <Picker.Item key={b.id} label={b.name} value={b.id} />
-              ))}
+              {/* Add sub-subcategories here based on subCategoryId */}
             </Picker>
           </View>
+
           {/* Select Brand */}
           <Text style={styles.inputLabel}>Brand</Text>
           <View style={styles.inputForm}>
             <Picker
               selectedValue={brandId}
-              onValueChange={(value) => setBrandId(value)}
+              onValueChange={(value) => {
+                console.log("Brand selected:", value);
+                setBrandId(value.toString());
+              }}
             >
               <Picker.Item label="Select Brand" value="" />
-
               {Array.isArray(brands) &&
                 brands.map((b) => (
                   <Picker.Item
                     key={b.id}
                     label={b.name}
-                    value={b.id}
+                    value={b.id.toString()} // Ensure it's a string
                   />
                 ))}
             </Picker>
-
-
           </View>
+
+
           {/* Product Type Field */}
           <Text style={styles.inputLabel}>
             Product Type <Text style={styles.requiredStar}>*</Text>
@@ -352,10 +537,13 @@ const EditProduct = () => {
           <View style={styles.inputForm}>
             <Picker
               selectedValue={productType}
-              onValueChange={(value) => setProductType(value)}
+              onValueChange={(value) => {
+                console.log("Product type selected:", value);
+                setProductType(value);
+              }}
             >
-              <Picker.Item label="Physical" value="Physical" />
-              <Picker.Item label="Digital" value="Digital" />
+              <Picker.Item label="Physical" value="physical" />
+              <Picker.Item label="Digital" value="digital" />
             </Picker>
           </View>
 
@@ -385,7 +573,6 @@ const EditProduct = () => {
                   <Picker.Item label="Select Delivery Type" value="" />
                   <Picker.Item label="Ready after Sell" value="ready after sell" />
                   <Picker.Item label="Ready Product" value="ready product" />
-
                 </Picker>
               </View>
             </>
@@ -398,36 +585,40 @@ const EditProduct = () => {
             onChangeText={setCode}
             required={true}
           />
+          <Input
+            label="Unit"
+            value={unit}
+            onChangeText={setUnit}
+            required={true}
+            placeholder="e.g., pc, kg, liter, box"
+          />
         </View>
 
         {/* Pricing & Inventory */}
         <Text style={styles.price}>Pricing & Inventory</Text>
         <View style={styles.information}>
-          {/* Unit Price Field */}
           <Input
             label="Unit Price ($)"
             value={unitPrice}
             onChangeText={setUnitPrice}
             required={true}
-            keyboardType="phone-pad"
+            keyboardType="numeric"
           />
-          {/* MOQ Field */}
           <Input
             label="Minimum Order Qty"
             value={minimumOrderQty}
             onChangeText={setMinimumOrderQty}
             required={true}
-            keyboardType="phone-pad"
+            keyboardType="numeric"
           />
-          {/* Current Stock Field */}
           <Input
             label="Current Stock Qty"
             value={currentStock}
             onChangeText={setCurrentStock}
             required={true}
-            keyboardType="phone-pad"
+            keyboardType="numeric"
           />
-          {/* Discount Type Field */}
+
           <Text style={styles.inputLabel}>Discount Type</Text>
           <View style={styles.inputForm}>
             <Picker
@@ -439,23 +630,21 @@ const EditProduct = () => {
               <Picker.Item label="Percentage" value="percentage" />
             </Picker>
           </View>
-          {/* Discount Amount Field */}
+
           <Input
             label="Discount Amount ($)"
             value={discount}
             onChangeText={setDiscount}
-            keyboardType="phone-pad"
+            keyboardType="numeric"
           />
-          {/* Tax Amount Field */}
           <Input
             label="Tax Amount (%)"
             value={tax}
             onChangeText={setTax}
             required={true}
-            keyboardType="phone-pad"
+            keyboardType="numeric"
           />
 
-          {/* Tax calculation Field */}
           <Text style={styles.inputLabel}>Tax calculation</Text>
           <View style={styles.inputForm}>
             <Picker
@@ -467,26 +656,22 @@ const EditProduct = () => {
               <Picker.Item label="Exclude with Product" value="exclude" />
             </Picker>
           </View>
+
           <Input
             label="Purchase Price ($)"
             value={purchasePrice}
             onChangeText={setPurchasePrice}
             required={true}
-            keyboardType="phone-pad"
+            keyboardType="numeric"
           />
-          {/* Shipping Cost Field*/}
           <Input
             label="Shipping Cost ($)"
             value={shippingCost}
             onChangeText={setShippingCost}
             required={true}
-            keyboardType="phone-pad"
+            keyboardType="numeric"
           />
         </View>
-
-        {/* Repeat the General Setup, Pricing & Inventory, Buttons... */}
-        {/* For brevity, you can copy the same sections from AddProduct.tsx */}
-        {/* Ensure you replace `handleAddProduct` with `handleUpdateProduct` */}
 
         <View style={styles.buttonRow}>
           <PrimaryButton
@@ -518,7 +703,32 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 4,
   },
-  info: { fontSize: 24, color: "#FA8232", fontWeight: "500", marginBottom: 16, marginTop: 16 },
+  setup: {
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "gray",
+    borderRadius: 10,
+    padding: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  info: {
+    fontSize: 24,
+    color: "#FA8232",
+    fontWeight: "500",
+    marginBottom: 16,
+    marginTop: 16
+  },
+  price: {
+    fontSize: 24,
+    color: "#FA8232",
+    fontWeight: "500",
+    marginBottom: 16,
+    marginTop: 16
+  },
   inputLabel: { marginBottom: 15, fontSize: 15, fontWeight: "600" },
   inputForm: {
     borderWidth: 1,
@@ -535,5 +745,15 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginTop: 20,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: "#888",
   },
 });

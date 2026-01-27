@@ -2,7 +2,7 @@ import ProductsHeader from "@/components/Header";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -25,11 +25,11 @@ const MyProducts = () => {
   const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
   const params = useLocalSearchParams();
+
+  const refreshParam = params.refresh;
   const updatedProductParam =
     (params as any).updatedProduct ??
     (params as URLSearchParams).get?.("updatedProduct");
-
-
 
   const fetchProducts = async (
     isRefreshing = false,
@@ -54,6 +54,11 @@ const MyProducts = () => {
       }
 
       const url = `https://yemi.store/api/v2/seller/products/list?${params.toString()}`;
+
+      console.log("📡 Fetch URL:", url);
+      console.log("🔍 Current filter:", filter);
+      console.log("🔍 Search query:", searchQuery);
+
       const res = await fetch(url, {
         method: "GET",
         headers: {
@@ -80,29 +85,14 @@ const MyProducts = () => {
 
       console.log("✅ Products fetched:", productsArray.length);
 
-      // Merge updated product safely
-      if (updatedProductParam) {
-        let updatedProduct;
-        try {
-          updatedProduct =
-            typeof updatedProductParam === "string"
-              ? JSON.parse(updatedProductParam)
-              : updatedProductParam;
-        } catch (err) {
-          console.warn("⚠️ Failed to parse updatedProductParam:", err);
-        }
-
-        if (updatedProduct) {
-          const idx = productsArray.findIndex(
-            (p) => p.id === updatedProduct.id
-          );
-          if (idx > -1) productsArray[idx] = updatedProduct;
-          else productsArray.unshift(updatedProduct);
-          console.log("🔄 Merged updated product:", updatedProduct.id);
-
-          // Optional: clear param so it doesn't merge repeatedly
-          router.replace(router.pathname, {});
-        }
+      // Log first product details if exists
+      if (productsArray.length > 0) {
+        console.log("📦 Sample product:", {
+          id: productsArray[0].id,
+          name: productsArray[0].name,
+          status: productsArray[0].status,
+          published: productsArray[0].published,
+        });
       }
 
       setProducts(productsArray);
@@ -115,12 +105,23 @@ const MyProducts = () => {
     }
   };
 
-  // Use focus effect
+  // Use focus effect - refetch when screen is focused
   useFocusEffect(
     useCallback(() => {
+      console.log("🔄 Screen focused - fetching products");
       fetchProducts(false, updatedProductParam);
-    }, [searchQuery, filter, updatedProductParam])
+
+      return () => {
+        console.log("📤 Screen unfocused");
+      };
+    }, [refreshParam]) // Only depend on refreshParam, not searchQuery/filter
   );
+
+  // Separate effect for when search/filter changes
+  useEffect(() => {
+    console.log("🔍 Filter/Search changed - refetching");
+    fetchProducts(false, updatedProductParam);
+  }, [searchQuery, filter]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -312,14 +313,21 @@ const MyProducts = () => {
         {products.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Ionicons name="add-circle-outline" size={80} color="#FA8232" />
-            <Text style={styles.emptyText}>No products yet</Text>
-            <Pressable
-              style={styles.addButton}
-              onPress={() => router.push("/addProduct")}
-            >
-              <Ionicons name="add" size={22} color="#fff" />
-              <Text style={styles.addButtonText}>Add Your First Product</Text>
-            </Pressable>
+            <Text style={styles.emptyText}>No products found</Text>
+            <Text style={styles.emptySubText}>
+              {filter !== "All" || searchQuery
+                ? "Try changing your filters or search"
+                : "Add your first product to get started"}
+            </Text>
+            {filter === "All" && !searchQuery && (
+              <Pressable
+                style={styles.addButton}
+                onPress={() => router.push("/addProduct")}
+              >
+                <Ionicons name="add" size={22} color="#fff" />
+                <Text style={styles.addButtonText}>Add Your First Product</Text>
+              </Pressable>
+            )}
           </View>
         ) : (
           <FlatList
@@ -338,7 +346,7 @@ const MyProducts = () => {
               <Pressable
                 onPress={() =>
                   router.push({
-                    pathname: "/productDetails", // your product detail screen
+                    pathname: "/productDetails",
                     params: { productId: item.id.toString() },
                   })
                 }
@@ -361,12 +369,10 @@ const MyProducts = () => {
                   {renderStatusLabel(item)}
                 </View>
 
-                {/* Buttons container */}
                 <View style={styles.buttonContainer}>
-                  {/* Edit button */}
                   <Pressable
                     onPress={(e) => {
-                      e.stopPropagation(); // prevent card navigation
+                      e.stopPropagation();
                       router.push({
                         pathname: "/editProduct",
                         params: { productId: item.id.toString() },
@@ -377,10 +383,9 @@ const MyProducts = () => {
                     <Ionicons name="pencil" size={16} color="#fff" />
                   </Pressable>
 
-                  {/* Delete button */}
                   <Pressable
                     onPress={(e) => {
-                      e.stopPropagation(); // prevent card navigation
+                      e.stopPropagation();
                       handleDeleteProduct(item.id);
                     }}
                     style={styles.deleteButton}
@@ -391,7 +396,6 @@ const MyProducts = () => {
               </Pressable>
             )}
           />
-
         )}
       </View>
     </SafeAreaView>
@@ -477,6 +481,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#888",
     marginTop: 10,
+    marginBottom: 8,
+    textAlign: "center",
+    fontWeight: "600",
+  },
+  emptySubText: {
+    fontSize: 14,
+    color: "#999",
     marginBottom: 20,
     textAlign: "center",
   },
