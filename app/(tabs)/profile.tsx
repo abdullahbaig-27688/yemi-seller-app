@@ -111,10 +111,21 @@ const Profile = () => {
       }
 
       const formData = new FormData();
+
+      // ✅ Use _method for Laravel/PHP frameworks that don't handle PUT FormData well
+      formData.append("_method", "PUT");
       formData.append("f_name", profile.firstName);
       formData.append("l_name", profile.lastName);
       formData.append("email", profile.email);
       formData.append("phone", profile.phone);
+
+      // ✅ Add logging to see what we're sending
+      console.log("Sending profile data:", {
+        f_name: profile.firstName,
+        l_name: profile.lastName,
+        email: profile.email,
+        phone: profile.phone,
+      });
 
       if (profile.password) {
         formData.append("password", profile.password);
@@ -132,11 +143,10 @@ const Profile = () => {
         });
       }
 
-      // ✅ Remove manual Content-Type
       const response = await fetch(
         "https://yemi.store/api/v2/seller/seller-update",
         {
-          method: "PUT",
+          method: "POST", // ✅ Changed from PUT to POST
           headers: {
             Authorization: `Bearer ${token}`,
             Accept: "application/json",
@@ -145,36 +155,83 @@ const Profile = () => {
         }
       );
 
-      const json = await response.json();
-      console.log("Profile update response:", json);
+      // ✅ FIX: Handle both string and JSON responses
+      const responseText = await response.text();
+      console.log("Profile update response:", responseText);
+      console.log("Response status:", response.status);
 
-      if (json.success) {
-        Alert.alert("Success", json.message || "Profile updated successfully");
-        await AsyncStorage.setItem("userProfile", JSON.stringify(profile));
+      // Try to parse as JSON, fall back to treating as string
+      let json;
+      try {
+        json = JSON.parse(responseText);
+      } catch {
+        json = { message: responseText };
+      }
+
+      // Check if response was successful (either by status code or success flag)
+      if (response.ok || json.success || responseText.includes("success")) {
+        const message = json.message || responseText || "Profile updated successfully";
+
+        // ✅ Re-fetch profile from API to ensure we have the latest data
+        try {
+          const profileResponse = await fetch(API_URL, {
+            headers: {
+              Accept: "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          });
+
+          if (profileResponse.ok) {
+            const profileData = await profileResponse.json();
+            console.log("Fetched updated profile:", profileData);
+
+            const updatedProfile = {
+              firstName: profileData.f_name || "",
+              lastName: profileData.l_name || "",
+              email: profileData.email || "",
+              phone: profileData.phone || "",
+              profileImage: profileData.image_full_url?.path || "",
+              password: "",
+              confirmPassword: "",
+            };
+
+            // Update state
+            setProfile(updatedProfile);
+
+            // Save to AsyncStorage
+            await AsyncStorage.setItem("userProfile", JSON.stringify(updatedProfile));
+
+            // Update seller_token (if it's a JSON object)
+            const currentToken = await AsyncStorage.getItem("seller_token");
+            if (currentToken) {
+              try {
+                // Try to parse as JSON (if it's an object)
+                const tokenData = JSON.parse(currentToken);
+                tokenData.f_name = profileData.f_name;
+                tokenData.l_name = profileData.l_name;
+                tokenData.email = profileData.email;
+                tokenData.phone = profileData.phone;
+                tokenData.image = profileData.image;
+                await AsyncStorage.setItem("seller_token", JSON.stringify(tokenData));
+              } catch (parseError) {
+                // If it's just a plain token string, leave it as is
+                console.log("seller_token is a plain string, not updating it");
+              }
+            }
+          }
+        } catch (refetchError) {
+          console.error("Error refetching profile:", refetchError);
+        }
+
+        Alert.alert("Success", message);
       } else {
-        Alert.alert("Error", json.message || "Failed to update profile");
+        Alert.alert("Error", json.message || responseText || "Failed to update profile");
       }
     } catch (error) {
       console.error("Update profile error:", error);
       Alert.alert("Error", "An unexpected error occurred");
     }
   };
-
-
-  // const handleSave = async () => {
-  //   if (profile.password && profile.password !== profile.confirmPassword) {
-  //     Alert.alert("Error", "Passwords do not match");
-  //     return;
-  //   }
-
-  //   try {
-  //     await AsyncStorage.setItem("userProfile", JSON.stringify(profile));
-  //     Alert.alert("Success", "Profile saved locally");
-  //     // TODO: Send updated profile and password to backend
-  //   } catch (error) {
-  //     Alert.alert("Error", "Failed to save profile");
-  //   }
-  // };
 
   if (loading) {
     return (
@@ -191,7 +248,6 @@ const Profile = () => {
         contentContainerStyle={[styles.container, { paddingBottom: 100 }]}
       >
         {/* Basic Information Section */}
-        {/* <Text style={styles.sectionTitle}>Basic Information</Text> */}
         <ProfileHeader
           title="Basic Information"
           leftIcon="arrow-back"

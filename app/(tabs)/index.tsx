@@ -130,17 +130,57 @@ const HomeScreen = () => {
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const userData = await AsyncStorage.getItem("seller_token");
-        if (!userData) {
+        // 1. First try to get from saved profile
+        const savedProfile = await AsyncStorage.getItem("userProfile");
+        if (savedProfile) {
+          const profile = JSON.parse(savedProfile);
+          const name =
+            profile?.firstName || profile?.lastName
+              ? `${profile?.firstName || ""} ${profile?.lastName || ""}`.trim()
+              : "Vendor";
+          if (name !== "Vendor") {
+            setDisplayName(name);
+            return;
+          }
+        }
+
+        // 2. If no saved profile, fetch from API
+        const token = await AsyncStorage.getItem("seller_token");
+        if (!token) {
           setDisplayName("Vendor");
           return;
         }
-        const parsedUser = JSON.parse(userData);
-        const name =
-          parsedUser?.firstName || parsedUser?.lastName
-            ? `${parsedUser?.firstName || ""} ${parsedUser?.lastName || ""}`.trim()
-            : parsedUser?.username || "Vendor";
-        setDisplayName(name);
+
+        const response = await fetch(
+          "https://yemi.store/api/v2/seller/seller-info",
+          {
+            headers: {
+              Accept: "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          const name =
+            data.f_name || data.l_name
+              ? `${data.f_name || ""} ${data.l_name || ""}`.trim()
+              : "Vendor";
+          setDisplayName(name);
+
+          // Save to AsyncStorage for future use
+          const profile = {
+            firstName: data.f_name || "",
+            lastName: data.l_name || "",
+            email: data.email || "",
+            phone: data.phone || "",
+            profileImage: data.image_full_url?.path || "",
+          };
+          await AsyncStorage.setItem("userProfile", JSON.stringify(profile));
+        } else {
+          setDisplayName("Vendor");
+        }
       } catch (error) {
         console.log("fetchUser error:", error);
         setDisplayName("Vendor");
@@ -174,7 +214,7 @@ const HomeScreen = () => {
   useEffect(() => {
     const fetchEarnings = async () => {
       try {
-        const token = await AsyncStorage.getItem("token"); // if your API requires it
+        const token = await AsyncStorage.getItem("seller_token");
         const response = await fetch(
           "https://yemi.store/api/v2/seller/earning-info",
           {
