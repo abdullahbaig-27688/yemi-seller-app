@@ -27,6 +27,7 @@ const MyProducts = () => {
   const params = useLocalSearchParams();
 
   const refreshParam = params.refresh;
+  const resetFiltersParam = params.resetFilters;
   const updatedProductParam =
     (params as any).updatedProduct ??
     (params as URLSearchParams).get?.("updatedProduct");
@@ -43,17 +44,35 @@ const MyProducts = () => {
         return;
       }
 
+      console.log("=".repeat(60));
       console.log("🔄 Fetching products from API with filters...");
 
       const params = new URLSearchParams();
-      if (searchQuery) params.append("search", searchQuery);
-      if (filter && filter !== "All") {
-        if (filter === "Active") params.append("status", "1");
-        if (filter === "Draft") params.append("status", "0");
-        if (filter === "Out of Stock") params.append("stock", "0");
+
+      // ✅ Only add search if it exists and is not empty
+      if (searchQuery && searchQuery.trim()) {
+        params.append("search", searchQuery.trim());
       }
 
-      const url = `https://yemi.store/api/v2/seller/products/list?${params.toString()}`;
+      // ✅ Only add filters if NOT "All"
+      if (filter && filter !== "All") {
+        if (filter === "Active") {
+          params.append("status", "1");
+          params.append("published", "1"); // ✅ Active products must be published
+        }
+        if (filter === "Draft") {
+          params.append("published", "0"); // ✅ Draft means unpublished
+        }
+        if (filter === "Out of Stock") {
+          params.append("stock", "0");
+        }
+      }
+
+      // ✅ Build URL - if no params, just use base URL
+      const queryString = params.toString();
+      const url = queryString
+        ? `https://yemi.store/api/v2/seller/products/list?${queryString}`
+        : `https://yemi.store/api/v2/seller/products/list`;
 
       console.log("📡 Fetch URL:", url);
       console.log("🔍 Current filter:", filter);
@@ -67,6 +86,9 @@ const MyProducts = () => {
         },
       });
 
+      console.log("📊 Response Status:", res.status);
+      console.log("📊 Response OK:", res.ok);
+
       if (!res.ok) {
         const errData = await res.json();
         console.error("❌ Fetch failed:", errData);
@@ -77,6 +99,14 @@ const MyProducts = () => {
       }
 
       const data = await res.json();
+
+      // ✅ Log response structure
+      console.log("📦 Raw Response Type:", typeof data);
+      console.log("📦 Is Array:", Array.isArray(data));
+      if (data.products) {
+        console.log("📦 data.products exists, type:", typeof data.products);
+      }
+
       let productsArray: any[] = [];
       if (Array.isArray(data)) productsArray = data;
       else if (Array.isArray(data.products)) productsArray = data.products;
@@ -92,8 +122,12 @@ const MyProducts = () => {
           name: productsArray[0].name,
           status: productsArray[0].status,
           published: productsArray[0].published,
+          current_stock: productsArray[0].current_stock,
         });
+      } else {
+        console.log("⚠️ No products in response");
       }
+      console.log("=".repeat(60));
 
       setProducts(productsArray);
     } catch (error: any) {
@@ -105,20 +139,31 @@ const MyProducts = () => {
     }
   };
 
-  // Use focus effect - refetch when screen is focused
+  // ✅ Use focus effect - refetch when screen is focused
   useFocusEffect(
     useCallback(() => {
       console.log("🔄 Screen focused - fetching products");
+
+      // ✅ Reset filters if coming back from edit with resetFilters flag
+      if (resetFiltersParam === "true") {
+        console.log("🔄 Resetting filters to default");
+        setFilter("All");
+        setSearchQuery("");
+      }
+
       fetchProducts(false, updatedProductParam);
 
       return () => {
         console.log("📤 Screen unfocused");
       };
-    }, [refreshParam]) // Only depend on refreshParam, not searchQuery/filter
+    }, [refreshParam, resetFiltersParam]) // ✅ Depend on both params
   );
 
-  // Separate effect for when search/filter changes
+  // ✅ Separate effect for when search/filter changes (but not on initial mount from refresh)
   useEffect(() => {
+    // Skip if we just reset filters (will be handled by useFocusEffect)
+    if (resetFiltersParam === "true") return;
+
     console.log("🔍 Filter/Search changed - refetching");
     fetchProducts(false, updatedProductParam);
   }, [searchQuery, filter]);
@@ -175,7 +220,8 @@ const MyProducts = () => {
   };
 
   const renderStatusLabel = (item: any) => {
-    if (item.status === 0 || item.published === 0)
+    // ✅ Check published status first
+    if (item.published === 0 || item.status === 0)
       return (
         <Text
           style={[

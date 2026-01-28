@@ -8,7 +8,7 @@ import axios from "axios";
 import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const EditProduct = () => {
@@ -32,11 +32,15 @@ const EditProduct = () => {
   const [taxCalculation, setTaxCalculation] = useState("");
   const [shippingCost, setShippingCost] = useState("0");
   const [purchasePrice, setPurchasePrice] = useState("");
-  const [unit, setUnit] = useState("pc"); // Add this with other state variables
+  const [unit, setUnit] = useState("pc");
   const [thumbnail, setThumbnail] = useState<any>(null);
   const [images, setImages] = useState<any[]>([]);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+
+  // ✅ NEW: Add state for published and status - Default to published
+  const [published, setPublished] = useState("1");
+  const [status, setStatus] = useState("1");
 
   // Digital product fields
   const [author, setAuthor] = useState("");
@@ -138,6 +142,8 @@ const EditProduct = () => {
         }
 
         console.log("✅ Found product:", product.name);
+        console.log("📊 Product published status:", product.published);
+        console.log("📊 Product status:", product.status);
 
         // Populate all fields
         setName(product.name || "");
@@ -157,8 +163,12 @@ const EditProduct = () => {
         setTaxCalculation(product.tax_calculation || "");
         setShippingCost(product.shipping_cost?.toString() || "0");
         setPurchasePrice(product.purchase_price?.toString() || "");
-        // In fetchProduct, add this line:
         setUnit(product.unit || "pc");
+
+        // ✅ NEW: Always set to published when editing (force publish on update)
+        setPublished("1"); // Force to published
+        setStatus(product.status?.toString() || "1");
+
         // Digital product fields
         setAuthor(product.author || "");
         setPublishingHouse(product.publishing_house || "");
@@ -241,6 +251,16 @@ const EditProduct = () => {
       return;
     }
 
+    // ✅ Warn if stock is 0
+    if (parseInt(currentStock) === 0) {
+      console.warn("⚠️ Warning: Current stock is 0 - product will show as Out of Stock");
+    }
+
+    // ✅ Warn if product is not published
+    if (published === "0") {
+      console.warn("⚠️ Warning: Product is unpublished - it will be saved as Draft");
+    }
+
     try {
       setIsUpdating(true);
 
@@ -255,6 +275,10 @@ const EditProduct = () => {
       // CRITICAL FOR LARAVEL: Add _method field to simulate PUT
       formData.append("_method", "PUT");
 
+      // ✅ CRITICAL: Add published and status to keep product visible
+      formData.append("published", published); // Keep product published state
+      formData.append("status", status); // Keep product active state
+
       // Basic product info
       formData.append("name", name.trim());
       formData.append("description", description.trim());
@@ -262,9 +286,9 @@ const EditProduct = () => {
       formData.append("sub_category_id", subCategoryId || "");
       formData.append("sub_sub_category_id", subSubCategoryId || "");
       formData.append("brand_id", brandId || "1");
-      formData.append("product_type", productType); // Keep as "Physical" or "Digital"
+      formData.append("product_type", productType);
       formData.append("code", code.trim());
-      formData.append("unit", unit.trim()); // ADD UNIT HERE
+      formData.append("unit", unit.trim());
       formData.append("unit_price", unitPrice);
       formData.append("purchase_price", purchasePrice || "0");
       formData.append("minimum_order_qty", minimumOrderQty);
@@ -275,6 +299,29 @@ const EditProduct = () => {
       formData.append("shipping_cost", shippingCost || "0");
       formData.append("lang", "en");
 
+      // ✅ Add tax_calculation if present
+      if (taxCalculation) {
+        formData.append("tax_calculation", taxCalculation);
+      }
+
+      // ✅ Add logging to see what we're sending
+      console.log("=".repeat(60));
+      console.log("🚀 UPDATE REQUEST DETAILS:");
+      console.log("Product ID:", productId);
+      console.log("URL:", `https://yemi.store/api/v2/seller/products/update/${productId}`);
+      console.log("FormData contents:");
+      console.log("  - name:", name.trim());
+      console.log("  - category_id:", selectedCategory);
+      console.log("  - product_type:", productType);
+      console.log("  - code:", code.trim());
+      console.log("  - unit:", unit.trim());
+      console.log("  - unit_price:", unitPrice);
+      console.log("  - current_stock:", currentStock);
+      console.log("  - brand_id:", brandId || "1");
+      console.log("  - published:", published); // ✅ Log this
+      console.log("  - status:", status); // ✅ Log this
+      console.log("=".repeat(60));
+
       // Digital product fields
       if (productType.toLowerCase() === "digital") {
         if (author) formData.append("author", author.trim());
@@ -284,15 +331,19 @@ const EditProduct = () => {
 
       // Thumbnail - only if it's a NEW file
       if (thumbnail?.uri && thumbnail.uri.startsWith("file://")) {
+        console.log("📎 Adding NEW thumbnail");
         formData.append("thumbnail", {
           uri: thumbnail.uri,
           type: thumbnail.type || "image/jpeg",
           name: thumbnail.name || "thumbnail.jpg",
         } as any);
+      } else {
+        console.log("ℹ️ No new thumbnail (using existing)");
       }
 
       // Images - only NEW files
       const newImages = images.filter(img => img.uri && img.uri.startsWith("file://"));
+      console.log("📎 Adding", newImages.length, "new images");
       newImages.forEach((img, i) => {
         formData.append("images[]", {
           uri: img.uri,
@@ -300,9 +351,6 @@ const EditProduct = () => {
           name: img.name || `image_${i}.jpg`,
         } as any);
       });
-
-      console.log("🔄 Updating product ID:", productId);
-      console.log("📦 Sending FormData with _method=PUT");
 
       // USE POST with _method=PUT for Laravel
       const res = await axios.post(
@@ -317,7 +365,13 @@ const EditProduct = () => {
         }
       );
 
-      console.log("✅ Product updated successfully:", res.data);
+      // ✅ Log the full response
+      console.log("=".repeat(60));
+      console.log("📥 UPDATE RESPONSE:");
+      console.log("Status:", res.status);
+      console.log("Status Text:", res.statusText);
+      console.log("Response Data:", JSON.stringify(res.data, null, 2));
+      console.log("=".repeat(60));
 
       // Check if response has errors
       if (res.data.errors && res.data.errors.length > 0) {
@@ -326,6 +380,38 @@ const EditProduct = () => {
           .join('\n');
         Alert.alert("Validation Errors", errorMessages);
         return;
+      }
+
+      // ✅ Verify product still exists after update
+      console.log("🔍 Verifying product still exists...");
+
+      const verifyRes = await axios.get(
+        `https://yemi.store/api/v2/seller/products/list`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json"
+          }
+        }
+      );
+
+      let productsArray: any[] = [];
+      if (Array.isArray(verifyRes.data)) productsArray = verifyRes.data;
+      else if (Array.isArray(verifyRes.data.products)) productsArray = verifyRes.data.products;
+      else if (Array.isArray(verifyRes.data.products?.data)) productsArray = verifyRes.data.products.data;
+
+      console.log("🔍 Total products after update:", productsArray.length);
+
+      const updatedProduct = productsArray.find(p => p.id?.toString() === productId?.toString());
+
+      if (updatedProduct) {
+        console.log("✅ Product found after update!");
+        console.log("Updated product published:", updatedProduct.published);
+        console.log("Updated product status:", updatedProduct.status);
+        console.log("Updated product stock:", updatedProduct.current_stock);
+      } else {
+        console.log("❌ WARNING: Product NOT found after update!");
+        console.log("Available product IDs:", productsArray.map(p => p.id));
       }
 
       Alert.alert(
@@ -337,7 +423,10 @@ const EditProduct = () => {
             onPress: () => {
               router.replace({
                 pathname: "/myProducts",
-                params: { refresh: Date.now().toString() }
+                params: {
+                  refresh: Date.now().toString(),
+                  resetFilters: "true"
+                }
               });
             }
           }
@@ -478,7 +567,7 @@ const EditProduct = () => {
                   <Picker.Item
                     key={cat.id}
                     label={cat.name}
-                    value={cat.id.toString()} // Ensure it's a string
+                    value={cat.id.toString()}
                   />
                 ))}
             </Picker>
@@ -523,12 +612,11 @@ const EditProduct = () => {
                   <Picker.Item
                     key={b.id}
                     label={b.name}
-                    value={b.id.toString()} // Ensure it's a string
+                    value={b.id.toString()}
                   />
                 ))}
             </Picker>
           </View>
-
 
           {/* Product Type Field */}
           <Text style={styles.inputLabel}>
@@ -673,6 +761,27 @@ const EditProduct = () => {
           />
         </View>
 
+        {/* ✅ Product Status Section */}
+        <Text style={styles.info}>Product Status</Text>
+        <View style={styles.information}>
+          <View style={styles.switchContainer}>
+            <View style={styles.switchLabelContainer}>
+              <Text style={styles.switchLabel}>Publish Product</Text>
+              <Text style={styles.switchDescription}>
+                {published === "1"
+                  ? "Product is live and visible to customers"
+                  : "Product is in draft mode and not visible"}
+              </Text>
+            </View>
+            <Switch
+              value={published === "1"}
+              onValueChange={(value) => setPublished(value ? "1" : "0")}
+              trackColor={{ false: "#ccc", true: "#FA8232" }}
+              thumbColor={published === "1" ? "#fff" : "#f4f3f4"}
+            />
+          </View>
+        </View>
+
         <View style={styles.buttonRow}>
           <PrimaryButton
             title={isUpdating ? "Updating..." : "Update Product"}
@@ -755,5 +864,25 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 16,
     color: "#888",
+  },
+  switchContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 10,
+  },
+  switchLabelContainer: {
+    flex: 1,
+    marginRight: 10,
+  },
+  switchLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 4,
+  },
+  switchDescription: {
+    fontSize: 13,
+    color: "#666",
   },
 });

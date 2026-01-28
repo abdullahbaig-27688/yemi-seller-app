@@ -1,17 +1,17 @@
-import React, { useState, useEffect } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  TextInput,
-  Alert,
-  ActivityIndicator,
-} from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import BankHeader from "@/components/Header";
+import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
+import React, { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const BankInfoScreen = () => {
@@ -61,11 +61,15 @@ const BankInfoScreen = () => {
 
   // Save updated bank info
   const handleSave = async () => {
-    if (loading) return; // block double-click
+    if (loading) return;
     setLoading(true);
     try {
       const token = await AsyncStorage.getItem("seller_token");
       if (!token) throw new Error("No auth token found. Please login again.");
+
+      // ✅ Get current profile data from AsyncStorage
+      const userProfileData = await AsyncStorage.getItem("userProfile");
+      const userProfile = userProfileData ? JSON.parse(userProfileData) : {};
 
       const response = await fetch(
         "https://yemi.store/api/v2/seller/seller-update",
@@ -76,6 +80,12 @@ const BankInfoScreen = () => {
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
+            // ✅ Include existing profile fields
+            f_name: userProfile.firstName || "",
+            l_name: userProfile.lastName || "",
+            email: userProfile.email || "",
+            phone: userProfile.phone || "",
+            // Bank info fields
             bank_name: form.bankName,
             branch: form.branchName,
             account_no: form.accountNumber,
@@ -89,7 +99,6 @@ const BankInfoScreen = () => {
 
       const cleanText = text.replace(/^"|"$/g, "").trim();
       if (cleanText === "Info updated successfully!") {
-        // ✅ Optimistic UI update
         setBankInfo({ ...form });
         setIsEditing(false);
         Alert.alert("Success", "Bank info updated successfully!");
