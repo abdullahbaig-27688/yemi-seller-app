@@ -6,12 +6,15 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
+  Alert,
   FlatList,
   Image,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -80,13 +83,23 @@ const HomeScreen = () => {
     collectedTotalTax: 0,
   });
 
+  // ✅ NEW: Withdraw modal state
+  const [withdrawModalVisible, setWithdrawModalVisible] = useState(false);
+  const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [withdrawNote, setWithdrawNote] = useState("");
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
+
+  // Calculate withdrawable balance
+  const withdrawableBalance = earnings.totalEarning - earnings.withdrawn - earnings.pendingWithdraw;
+
   // --- Quick Actions dynamically using API values ---
   const quickActions = [
     {
       id: "1",
       title: "Withdrawable Balance",
-      ammount: `${earnings.totalEarning - earnings.withdrawn - earnings.pendingWithdraw}$`,
+      ammount: `${withdrawableBalance}$`,
       icon: icons.withdraw,
+      onPress: () => setWithdrawModalVisible(true), // ✅ Open withdraw modal
     },
     {
       id: "2",
@@ -211,32 +224,127 @@ const HomeScreen = () => {
   }, []);
 
   // --- Fetch earnings ---
-  useEffect(() => {
-    const fetchEarnings = async () => {
-      try {
-        const token = await AsyncStorage.getItem("seller_token");
-        const response = await fetch(
-          "https://yemi.store/api/v2/seller/earning-info",
-          {
-            headers: {
-              Authorization: token ? `Bearer ${token}` : "",
-              Accept: "application/json",
-            },
-          }
-        );
-        const text = await response.text();
-        try {
-          const json = JSON.parse(text);
-          if (json.success && json.data) setEarnings(json.data);
-        } catch {
-          console.error("Earnings API did not return JSON:", text);
+  const fetchEarnings = async () => {
+    try {
+      const token = await AsyncStorage.getItem("seller_token");
+      const response = await fetch(
+        "https://yemi.store/api/v2/seller/earning-info",
+        {
+          headers: {
+            Authorization: token ? `Bearer ${token}` : "",
+            Accept: "application/json",
+          },
         }
-      } catch (error) {
-        console.error("Failed to fetch earnings:", error);
+      );
+      const text = await response.text();
+      try {
+        const json = JSON.parse(text);
+        if (json.success && json.data) setEarnings(json.data);
+      } catch {
+        console.error("Earnings API did not return JSON:", text);
       }
-    };
+    } catch (error) {
+      console.error("Failed to fetch earnings:", error);
+    }
+  };
+
+  useEffect(() => {
     fetchEarnings();
   }, []);
+
+  // ✅ NEW: Handle withdraw balance
+  const handleWithdraw = async () => {
+    // Validation
+    const amount = parseFloat(withdrawAmount);
+
+    if (!withdrawAmount || isNaN(amount)) {
+      Alert.alert("Invalid Amount", "Please enter a valid amount to withdraw");
+      return;
+    }
+
+    if (amount <= 0) {
+      Alert.alert("Invalid Amount", "Withdrawal amount must be greater than 0");
+      return;
+    }
+
+    if (amount > withdrawableBalance) {
+      Alert.alert(
+        "Insufficient Balance",
+        `You can only withdraw up to $${withdrawableBalance.toFixed(2)}`
+      );
+      return;
+    }
+
+    if (!withdrawNote.trim()) {
+      Alert.alert("Note Required", "Please add a transaction note");
+      return;
+    }
+
+    try {
+      setIsWithdrawing(true);
+
+      const token = await AsyncStorage.getItem("seller_token");
+      if (!token) {
+        Alert.alert("Error", "Authentication token not found. Please login again.");
+        return;
+      }
+
+      console.log("🔄 Initiating withdrawal...");
+      console.log("Amount:", amount);
+      console.log("Note:", withdrawNote.trim());
+
+      const response = await fetch(
+        `https://yemi.store/api/v2/seller/balance-withdraw?amount=${amount}&transaction_note=${encodeURIComponent(withdrawNote.trim())}`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      const responseText = await response.text();
+      console.log("📥 Withdraw Response:", responseText);
+
+      let result;
+      try {
+        result = JSON.parse(responseText);
+      } catch {
+        result = { message: responseText };
+      }
+
+      if (response.ok || result.success) {
+        Alert.alert(
+          "Success",
+          result.message || "Withdrawal request submitted successfully!",
+          [
+            {
+              text: "OK",
+              onPress: () => {
+                setWithdrawModalVisible(false);
+                setWithdrawAmount("");
+                setWithdrawNote("");
+                // Refresh earnings
+                fetchEarnings();
+              },
+            },
+          ]
+        );
+      } else {
+        Alert.alert(
+          "Withdrawal Failed",
+          result.message || "Failed to process withdrawal request"
+        );
+      }
+    } catch (error) {
+      console.error("❌ Withdrawal error:", error);
+      Alert.alert("Error", "An error occurred while processing your withdrawal");
+    } finally {
+      setIsWithdrawing(false);
+    }
+  };
 
   const toggleMenu = () => setMenuVisible((prev) => !prev);
 
@@ -280,6 +388,86 @@ const HomeScreen = () => {
           </View>
         </Pressable>
       )}
+
+      {/* ✅ NEW: Withdraw Balance Modal */}
+      <Modal
+        visible={withdrawModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setWithdrawModalVisible(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setWithdrawModalVisible(false)}
+        >
+          <Pressable
+            style={styles.modalContent}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Withdraw Balance</Text>
+              <Pressable onPress={() => setWithdrawModalVisible(false)}>
+                <Ionicons name="close" size={24} color="#333" />
+              </Pressable>
+            </View>
+
+            <View style={styles.balanceInfo}>
+              <Text style={styles.balanceLabel}>Available Balance</Text>
+              <Text style={styles.balanceAmount}>${withdrawableBalance.toFixed(2)}</Text>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Withdrawal Amount ($)</Text>
+              <TextInput
+                style={styles.input}
+                value={withdrawAmount}
+                onChangeText={setWithdrawAmount}
+                placeholder="Enter amount"
+                keyboardType="decimal-pad"
+                editable={!isWithdrawing}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Transaction Note</Text>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                value={withdrawNote}
+                onChangeText={setWithdrawNote}
+                placeholder="Add a note for this transaction"
+                multiline
+                numberOfLines={3}
+                textAlignVertical="top"
+                editable={!isWithdrawing}
+              />
+            </View>
+
+            <View style={styles.modalButtons}>
+              <Pressable
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setWithdrawModalVisible(false)}
+                disabled={isWithdrawing}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </Pressable>
+
+              <Pressable
+                style={[
+                  styles.modalButton,
+                  styles.withdrawButton,
+                  isWithdrawing && styles.withdrawButtonDisabled,
+                ]}
+                onPress={handleWithdraw}
+                disabled={isWithdrawing}
+              >
+                <Text style={styles.withdrawButtonText}>
+                  {isWithdrawing ? "Processing..." : "Withdraw"}
+                </Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -337,23 +525,29 @@ const HomeScreen = () => {
           keyExtractor={(item) => item.id}
           numColumns={2}
           renderItem={({ item, index }) => (
-            <LinearGradient
-              colors={gradients[index % gradients.length]}
-              style={styles.statusCard}
+            <Pressable
+              onPress={item.onPress || undefined}
+              style={{ flex: 1 }}
             >
-              <Image
-                source={item.icon}
-                style={{
-                  width: 25,
-                  height: 25,
-                  marginBottom: 6,
-                  resizeMode: "contain",
-                }}
-              />
-              <Text style={styles.statusAmmount}>{item.ammount}</Text>
-              <Text style={styles.statusText}>{item.title}</Text>
-            </LinearGradient>
+              <LinearGradient
+                colors={gradients[index % gradients.length]}
+                style={styles.statusCard}
+              >
+                <Image
+                  source={item.icon}
+                  style={{
+                    width: 30, // 🔥 same as order status
+                    height: 30,
+                    marginBottom: 6,
+                    resizeMode: "contain",
+                  }}
+                />
+                <Text style={styles.statusText}>{item.title}</Text>
+                <Text style={styles.statusNumber}>{item.ammount}</Text>
+              </LinearGradient>
+            </Pressable>
           )}
+
           columnWrapperStyle={{
             justifyContent: "space-between",
             marginBottom: 12,
@@ -421,5 +615,104 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     textAlign: "center",
+  },
+  // ✅ NEW: Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 20,
+    width: "90%",
+    maxWidth: 400,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#333",
+  },
+  balanceInfo: {
+    backgroundColor: "#F6F5F6",
+    padding: 16,
+    borderRadius: 12,
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  balanceLabel: {
+    fontSize: 14,
+    color: "#666",
+    marginBottom: 4,
+  },
+  balanceAmount: {
+    fontSize: 28,
+    fontWeight: "bold",
+    color: "#FA8232",
+  },
+  inputGroup: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 8,
+  },
+  input: {
+    backgroundColor: "#F6F5F6",
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
+  },
+  textArea: {
+    height: 80,
+    textAlignVertical: "top",
+  },
+  modalButtons: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 8,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cancelButton: {
+    backgroundColor: "#F0F0F0",
+  },
+  cancelButtonText: {
+    color: "#333",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  withdrawButton: {
+    backgroundColor: "#FA8232",
+  },
+  withdrawButtonDisabled: {
+    backgroundColor: "#FFC09F",
+  },
+  withdrawButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });
