@@ -72,7 +72,7 @@ const statusEndpoints = {
 const HomeScreen = () => {
   const [displayName, setDisplayName] = useState("");
   const [menuVisible, setMenuVisible] = useState(false);
-  const [orderCounts, setOrderCounts] = useState({}); // dynamic counts
+  const [orderCounts, setOrderCounts] = useState({});
   const [earnings, setEarnings] = useState({
     totalEarning: 0,
     withdrawn: 0,
@@ -83,58 +83,71 @@ const HomeScreen = () => {
     collectedTotalTax: 0,
   });
 
-  // ✅ NEW: Withdraw modal state
   const [withdrawModalVisible, setWithdrawModalVisible] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [withdrawNote, setWithdrawNote] = useState("");
   const [isWithdrawing, setIsWithdrawing] = useState(false);
 
-  // Calculate withdrawable balance
-  const withdrawableBalance = earnings.totalEarning - earnings.withdrawn - earnings.pendingWithdraw;
+  // ✅ FIXED: Calculate withdrawable balance with proper number conversion
+  const withdrawableBalance =
+    parseFloat(earnings.totalEarning || 0) -
+    parseFloat(earnings.withdrawn || 0) -
+    parseFloat(earnings.pendingWithdraw || 0);
+
+  // Log for debugging
+  useEffect(() => {
+    console.log("=".repeat(60));
+    console.log("💰 BALANCE CALCULATION:");
+    console.log("Total Earning:", earnings.totalEarning, "Type:", typeof earnings.totalEarning);
+    console.log("Withdrawn:", earnings.withdrawn, "Type:", typeof earnings.withdrawn);
+    console.log("Pending Withdraw:", earnings.pendingWithdraw, "Type:", typeof earnings.pendingWithdraw);
+    console.log("Calculated Withdrawable:", withdrawableBalance);
+    console.log("=".repeat(60));
+  }, [earnings]);
 
   // --- Quick Actions dynamically using API values ---
   const quickActions = [
     {
       id: "1",
       title: "Withdrawable Balance",
-      ammount: `${withdrawableBalance}$`,
+      ammount: `$${withdrawableBalance.toFixed(2)}`,
       icon: icons.withdraw,
-      onPress: () => setWithdrawModalVisible(true), // ✅ Open withdraw modal
+      onPress: () => setWithdrawModalVisible(true),
     },
     {
       id: "2",
       title: "Pending Withdraw",
-      ammount: `${earnings.pendingWithdraw}$`,
+      ammount: `$${parseFloat(earnings.pendingWithdraw || 0).toFixed(2)}`,
       icon: icons.peningWithdraw,
     },
     {
       id: "3",
       title: "Already Withdrawn",
-      ammount: `${earnings.withdrawn}$`,
+      ammount: `$${parseFloat(earnings.withdrawn || 0).toFixed(2)}`,
       icon: icons.alreadyWithdrawn,
     },
     {
       id: "4",
       title: "Total Commission Given",
-      ammount: `${earnings.adminCommission}$`,
+      ammount: `$${parseFloat(earnings.adminCommission || 0).toFixed(2)}`,
       icon: icons.alreadyWithdrawn,
     },
     {
       id: "5",
       title: "Total Delivery Charge Earned",
-      ammount: `${earnings.deliveryManChargeEarned}$`,
+      ammount: `$${parseFloat(earnings.deliveryManChargeEarned || 0).toFixed(2)}`,
       icon: icons.delieveryCharges,
     },
     {
       id: "6",
       title: "Total Tax Given",
-      ammount: `${earnings.collectedTotalTax}$`,
+      ammount: `$${parseFloat(earnings.collectedTotalTax || 0).toFixed(2)}`,
       icon: icons.taxGiven,
     },
     {
       id: "7",
       title: "Collected Cash",
-      ammount: `${earnings.collectedCash}$`,
+      ammount: `$${parseFloat(earnings.collectedCash || 0).toFixed(2)}`,
       icon: icons.collectedCash,
     },
   ];
@@ -143,7 +156,6 @@ const HomeScreen = () => {
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        // 1. First try to get from saved profile
         const savedProfile = await AsyncStorage.getItem("userProfile");
         if (savedProfile) {
           const profile = JSON.parse(savedProfile);
@@ -157,7 +169,6 @@ const HomeScreen = () => {
           }
         }
 
-        // 2. If no saved profile, fetch from API
         const token = await AsyncStorage.getItem("seller_token");
         if (!token) {
           setDisplayName("Vendor");
@@ -182,7 +193,6 @@ const HomeScreen = () => {
               : "Vendor";
           setDisplayName(name);
 
-          // Save to AsyncStorage for future use
           const profile = {
             firstName: data.f_name || "",
             lastName: data.l_name || "",
@@ -214,7 +224,7 @@ const HomeScreen = () => {
           const data = await response.json();
           counts[title] = data.total || 0;
         } catch (error) {
-          console.error(`Failed to fetch ${title} orders:`, error);
+          console.log(`Failed to fetch ${title} orders:`, error);
           counts[title] = 0;
         }
       }
@@ -230,21 +240,41 @@ const HomeScreen = () => {
       const response = await fetch(
         "https://yemi.store/api/v2/seller/earning-info",
         {
+          method: "POST", // ✅ Added POST method
           headers: {
             Authorization: token ? `Bearer ${token}` : "",
             Accept: "application/json",
           },
         }
       );
+
       const text = await response.text();
+      console.log("📥 Raw earnings response:", text);
+
       try {
         const json = JSON.parse(text);
-        if (json.success && json.data) setEarnings(json.data);
-      } catch {
-        console.error("Earnings API did not return JSON:", text);
+        console.log("📊 Parsed earnings data:", json);
+
+        if (json.success && json.data) {
+          // ✅ Convert all values to numbers
+          const earningsData = {
+            totalEarning: parseFloat(json.data.totalEarning || 0),
+            withdrawn: parseFloat(json.data.withdrawn || 0),
+            pendingWithdraw: parseFloat(json.data.pendingWithdraw || 0),
+            adminCommission: parseFloat(json.data.adminCommission || 0),
+            deliveryManChargeEarned: parseFloat(json.data.deliveryManChargeEarned || 0),
+            collectedCash: parseFloat(json.data.collectedCash || 0),
+            collectedTotalTax: parseFloat(json.data.collectedTotalTax || 0),
+          };
+
+          console.log("✅ Converted earnings data:", earningsData);
+          setEarnings(earningsData);
+        }
+      } catch (parseError) {
+        console.log("Earnings API did not return JSON:", text);
       }
     } catch (error) {
-      console.error("Failed to fetch earnings:", error);
+      console.log("Failed to fetch earnings:", error);
     }
   };
 
@@ -252,9 +282,8 @@ const HomeScreen = () => {
     fetchEarnings();
   }, []);
 
-  // ✅ NEW: Handle withdraw balance
+  // ✅ Handle withdraw balance
   const handleWithdraw = async () => {
-    // Validation
     const amount = parseFloat(withdrawAmount);
 
     if (!withdrawAmount || isNaN(amount)) {
@@ -326,7 +355,6 @@ const HomeScreen = () => {
                 setWithdrawModalVisible(false);
                 setWithdrawAmount("");
                 setWithdrawNote("");
-                // Refresh earnings
                 fetchEarnings();
               },
             },
@@ -339,7 +367,7 @@ const HomeScreen = () => {
         );
       }
     } catch (error) {
-      console.error("❌ Withdrawal error:", error);
+      console.log("❌ Withdrawal error:", error);
       Alert.alert("Error", "An error occurred while processing your withdrawal");
     } finally {
       setIsWithdrawing(false);
@@ -389,7 +417,7 @@ const HomeScreen = () => {
         </Pressable>
       )}
 
-      {/* ✅ NEW: Withdraw Balance Modal */}
+      {/* Withdraw Balance Modal */}
       <Modal
         visible={withdrawModalVisible}
         transparent={true}
@@ -536,7 +564,7 @@ const HomeScreen = () => {
                 <Image
                   source={item.icon}
                   style={{
-                    width: 30, // 🔥 same as order status
+                    width: 30,
                     height: 30,
                     marginBottom: 6,
                     resizeMode: "contain",
@@ -547,7 +575,6 @@ const HomeScreen = () => {
               </LinearGradient>
             </Pressable>
           )}
-
           columnWrapperStyle={{
             justifyContent: "space-between",
             marginBottom: 12,
@@ -616,7 +643,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     textAlign: "center",
   },
-  // ✅ NEW: Modal styles
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.5)",

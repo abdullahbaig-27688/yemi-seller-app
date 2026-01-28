@@ -90,9 +90,23 @@ const MyProducts = () => {
       console.log("📊 Response OK:", res.ok);
 
       if (!res.ok) {
-        const errData = await res.json();
-        console.error("❌ Fetch failed:", errData);
-        Alert.alert("Error", "Failed to fetch products");
+        try {
+          const errData = await res.json();
+          console.log("❌ Fetch failed:", JSON.stringify(errData));
+
+          // ✅ Check if it's a backend error with corrupted product data
+          if (res.status === 500 && errData.message?.includes("could not be converted to string")) {
+            Alert.alert(
+              "Database Error",
+              "Some products have corrupted data. Please contact support or try deleting and re-adding affected products.",
+              [{ text: "OK" }]
+            );
+          } else {
+            Alert.alert("Error", "Failed to fetch products");
+          }
+        } catch (e) {
+          Alert.alert("Error", "Failed to fetch products");
+        }
         setLoading(false);
         setRefreshing(false);
         return;
@@ -131,8 +145,9 @@ const MyProducts = () => {
 
       setProducts(productsArray);
     } catch (error: any) {
+      // ✅ Use console.log instead of console.error
       console.log("❌ Error fetching products:", error.message);
-      Alert.alert("Error", "Failed to fetch products");
+      Alert.alert("Error", "Failed to fetch products. Please check your connection.");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -200,7 +215,8 @@ const MyProducts = () => {
 
               if (!res.ok) {
                 const errData = await res.json();
-                console.error("❌ Delete failed:", errData);
+                // ✅ Use console.log instead of console.error
+                console.log("❌ Delete failed:", JSON.stringify(errData));
                 Alert.alert("Error", "Failed to delete product.");
                 return;
               }
@@ -209,8 +225,9 @@ const MyProducts = () => {
                 prev.filter((item) => item.id !== productId)
               );
               Alert.alert("Success", "Product deleted successfully!");
-            } catch (error) {
-              console.log("❌ Error deleting product:", error);
+            } catch (error: any) {
+              // ✅ Use console.log instead of console.error
+              console.log("❌ Error deleting product:", error.message);
               Alert.alert("Error", "Failed to delete product.");
             }
           },
