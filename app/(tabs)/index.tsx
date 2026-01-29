@@ -11,6 +11,7 @@ import {
   Image,
   Modal,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -87,12 +88,15 @@ const HomeScreen = () => {
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [withdrawNote, setWithdrawNote] = useState("");
   const [isWithdrawing, setIsWithdrawing] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // ✅ FIXED: Calculate withdrawable balance with proper number conversion
-  const withdrawableBalance =
+  // ✅ IMPROVED: Calculate withdrawable balance with proper safeguards
+  const withdrawableBalance = Math.max(
+    0,
     parseFloat(earnings.totalEarning || 0) -
     parseFloat(earnings.withdrawn || 0) -
-    parseFloat(earnings.pendingWithdraw || 0);
+    parseFloat(earnings.pendingWithdraw || 0)
+  );
 
   // Log for debugging
   useEffect(() => {
@@ -101,9 +105,11 @@ const HomeScreen = () => {
     console.log("Total Earning:", earnings.totalEarning, "Type:", typeof earnings.totalEarning);
     console.log("Withdrawn:", earnings.withdrawn, "Type:", typeof earnings.withdrawn);
     console.log("Pending Withdraw:", earnings.pendingWithdraw, "Type:", typeof earnings.pendingWithdraw);
-    console.log("Calculated Withdrawable:", withdrawableBalance);
+    console.log("❓ Formula: Total - Withdrawn - Pending");
+    console.log(`❓ ${earnings.totalEarning} - ${earnings.withdrawn} - ${earnings.pendingWithdraw} = ${withdrawableBalance}`);
+    console.log("✅ Calculated Withdrawable:", withdrawableBalance);
     console.log("=".repeat(60));
-  }, [earnings]);
+  }, [earnings, withdrawableBalance]);
 
   // --- Quick Actions dynamically using API values ---
   const quickActions = [
@@ -112,7 +118,17 @@ const HomeScreen = () => {
       title: "Withdrawable Balance",
       ammount: `$${withdrawableBalance.toFixed(2)}`,
       icon: icons.withdraw,
-      onPress: () => setWithdrawModalVisible(true),
+      onPress: () => {
+        if (withdrawableBalance <= 0) {
+          Alert.alert(
+            "No Balance Available",
+            "You don't have any balance available to withdraw at this time."
+          );
+          return;
+        }
+        setWithdrawModalVisible(true);
+      },
+      highlight: true,
     },
     {
       id: "2",
@@ -213,23 +229,24 @@ const HomeScreen = () => {
   }, []);
 
   // --- Fetch order counts ---
-  useEffect(() => {
-    const fetchOrderCounts = async () => {
-      const counts = {};
-      for (const [title, status] of Object.entries(statusEndpoints)) {
-        try {
-          const response = await fetch(
-            `https://yemi.store/api/v2/seller/orders/vendor/${status}?order_status=${status}&seller_id=29&seller_is=seller&page=1`
-          );
-          const data = await response.json();
-          counts[title] = data.total || 0;
-        } catch (error) {
-          console.log(`Failed to fetch ${title} orders:`, error);
-          counts[title] = 0;
-        }
+  const fetchOrderCounts = async () => {
+    const counts = {};
+    for (const [title, status] of Object.entries(statusEndpoints)) {
+      try {
+        const response = await fetch(
+          `https://yemi.store/api/v2/seller/orders/vendor/${status}?order_status=${status}&seller_id=29&seller_is=seller&page=1`
+        );
+        const data = await response.json();
+        counts[title] = data.total || 0;
+      } catch (error) {
+        console.log(`Failed to fetch ${title} orders:`, error);
+        counts[title] = 0;
       }
-      setOrderCounts(counts);
-    };
+    }
+    setOrderCounts(counts);
+  };
+
+  useEffect(() => {
     fetchOrderCounts();
   }, []);
 
@@ -240,7 +257,7 @@ const HomeScreen = () => {
       const response = await fetch(
         "https://yemi.store/api/v2/seller/earning-info",
         {
-          method: "POST", // ✅ Added POST method
+          method: "POST",
           headers: {
             Authorization: token ? `Bearer ${token}` : "",
             Accept: "application/json",
@@ -256,7 +273,7 @@ const HomeScreen = () => {
         console.log("📊 Parsed earnings data:", json);
 
         if (json.success && json.data) {
-          // ✅ Convert all values to numbers
+          // ✅ Convert all values to numbers with proper handling
           const earningsData = {
             totalEarning: parseFloat(json.data.totalEarning || 0),
             withdrawn: parseFloat(json.data.withdrawn || 0),
@@ -282,10 +299,18 @@ const HomeScreen = () => {
     fetchEarnings();
   }, []);
 
-  // ✅ Handle withdraw balance
+  // ✅ Refresh handler
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([fetchEarnings(), fetchOrderCounts()]);
+    setRefreshing(false);
+  };
+
+  // ✅ IMPROVED: Handle withdraw balance with better validation
   const handleWithdraw = async () => {
     const amount = parseFloat(withdrawAmount);
 
+    // Validation
     if (!withdrawAmount || isNaN(amount)) {
       Alert.alert("Invalid Amount", "Please enter a valid amount to withdraw");
       return;
@@ -296,10 +321,23 @@ const HomeScreen = () => {
       return;
     }
 
-    if (amount > withdrawableBalance) {
+    // ✅ Check against current withdrawable balance
+    const currentWithdrawable = Math.max(
+      0,
+      parseFloat(earnings.totalEarning || 0) -
+      parseFloat(earnings.withdrawn || 0) -
+      parseFloat(earnings.pendingWithdraw || 0)
+    );
+
+    if (amount > currentWithdrawable) {
       Alert.alert(
         "Insufficient Balance",
-        `You can only withdraw up to $${withdrawableBalance.toFixed(2)}`
+        `You can only withdraw up to $${currentWithdrawable.toFixed(2)}.\n\n` +
+        `Current Status:\n` +
+        `• Total Earnings: $${parseFloat(earnings.totalEarning || 0).toFixed(2)}\n` +
+        `• Already Withdrawn: $${parseFloat(earnings.withdrawn || 0).toFixed(2)}\n` +
+        `• Pending Withdrawals: $${parseFloat(earnings.pendingWithdraw || 0).toFixed(2)}\n` +
+        `• Available: $${currentWithdrawable.toFixed(2)}`
       );
       return;
     }
@@ -318,9 +356,12 @@ const HomeScreen = () => {
         return;
       }
 
+      console.log("=".repeat(60));
       console.log("🔄 Initiating withdrawal...");
       console.log("Amount:", amount);
       console.log("Note:", withdrawNote.trim());
+      console.log("Current Withdrawable:", currentWithdrawable);
+      console.log("=".repeat(60));
 
       const response = await fetch(
         `https://yemi.store/api/v2/seller/balance-withdraw?amount=${amount}&transaction_note=${encodeURIComponent(withdrawNote.trim())}`,
@@ -344,18 +385,25 @@ const HomeScreen = () => {
         result = { message: responseText };
       }
 
-      if (response.ok || result.success) {
+      if (response.ok || result.success || responseText.includes("successfully")) {
+        // ✅ Optimistic update: Update pending withdraw immediately
+        setEarnings(prev => ({
+          ...prev,
+          pendingWithdraw: parseFloat(prev.pendingWithdraw || 0) + amount
+        }));
+
         Alert.alert(
           "Success",
           result.message || "Withdrawal request submitted successfully!",
           [
             {
               text: "OK",
-              onPress: () => {
+              onPress: async () => {
                 setWithdrawModalVisible(false);
                 setWithdrawAmount("");
                 setWithdrawNote("");
-                fetchEarnings();
+                // ✅ Fetch fresh data from server
+                await fetchEarnings();
               },
             },
           ]
@@ -439,9 +487,29 @@ const HomeScreen = () => {
               </Pressable>
             </View>
 
-            <View style={styles.balanceInfo}>
-              <Text style={styles.balanceLabel}>Available Balance</Text>
-              <Text style={styles.balanceAmount}>${withdrawableBalance.toFixed(2)}</Text>
+            {/* ✅ Enhanced balance breakdown */}
+            <View style={styles.balanceBreakdown}>
+              <View style={styles.balanceRow}>
+                <Text style={styles.balanceRowLabel}>Total Earnings:</Text>
+                <Text style={styles.balanceRowValue}>${parseFloat(earnings.totalEarning || 0).toFixed(2)}</Text>
+              </View>
+              <View style={styles.balanceRow}>
+                <Text style={styles.balanceRowLabel}>Already Withdrawn:</Text>
+                <Text style={[styles.balanceRowValue, styles.negativeValue]}>
+                  -${parseFloat(earnings.withdrawn || 0).toFixed(2)}
+                </Text>
+              </View>
+              <View style={styles.balanceRow}>
+                <Text style={styles.balanceRowLabel}>Pending Withdrawals:</Text>
+                <Text style={[styles.balanceRowValue, styles.negativeValue]}>
+                  -${parseFloat(earnings.pendingWithdraw || 0).toFixed(2)}
+                </Text>
+              </View>
+              <View style={styles.divider} />
+              <View style={styles.balanceRow}>
+                <Text style={styles.totalLabel}>Available to Withdraw:</Text>
+                <Text style={styles.totalValue}>${withdrawableBalance.toFixed(2)}</Text>
+              </View>
             </View>
 
             <View style={styles.inputGroup}>
@@ -450,7 +518,7 @@ const HomeScreen = () => {
                 style={styles.input}
                 value={withdrawAmount}
                 onChangeText={setWithdrawAmount}
-                placeholder="Enter amount"
+                placeholder={`Max: $${withdrawableBalance.toFixed(2)}`}
                 keyboardType="decimal-pad"
                 editable={!isWithdrawing}
               />
@@ -473,7 +541,11 @@ const HomeScreen = () => {
             <View style={styles.modalButtons}>
               <Pressable
                 style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setWithdrawModalVisible(false)}
+                onPress={() => {
+                  setWithdrawModalVisible(false);
+                  setWithdrawAmount("");
+                  setWithdrawNote("");
+                }}
                 disabled={isWithdrawing}
               >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
@@ -500,9 +572,17 @@ const HomeScreen = () => {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ padding: 20, paddingBottom: "30%" }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={["#FA8232"]}
+            tintColor="#FA8232"
+          />
+        }
       >
         <Text style={styles.greeting}>Hello, {displayName}</Text>
-        <Text>
+        <Text style={styles.subtitle}>
           Track and analyze your business performance with powerful insights
           and statistics.
         </Text>
@@ -547,7 +627,7 @@ const HomeScreen = () => {
         />
 
         {/* Quick Actions */}
-        <Text style={styles.sectionTitle}>Quick Actions</Text>
+        <Text style={styles.sectionTitle}>Financial Overview</Text>
         <FlatList
           data={quickActions}
           keyExtractor={(item) => item.id}
@@ -556,10 +636,14 @@ const HomeScreen = () => {
             <Pressable
               onPress={item.onPress || undefined}
               style={{ flex: 1 }}
+              disabled={!item.onPress}
             >
               <LinearGradient
                 colors={gradients[index % gradients.length]}
-                style={styles.statusCard}
+                style={[
+                  styles.statusCard,
+                  item.highlight && styles.highlightCard
+                ]}
               >
                 <Image
                   source={item.icon}
@@ -571,7 +655,12 @@ const HomeScreen = () => {
                   }}
                 />
                 <Text style={styles.statusText}>{item.title}</Text>
-                <Text style={styles.statusNumber}>{item.ammount}</Text>
+                <Text style={[
+                  styles.statusNumber,
+                  item.highlight && styles.highlightAmount
+                ]}>
+                  {item.ammount}
+                </Text>
               </LinearGradient>
             </Pressable>
           )}
@@ -615,7 +704,8 @@ const styles = StyleSheet.create({
     paddingTop: 50,
     paddingHorizontal: 20,
   },
-  greeting: { fontSize: 24, fontWeight: "600", marginBottom: 16 },
+  greeting: { fontSize: 24, fontWeight: "600", marginBottom: 8 },
+  subtitle: { fontSize: 14, color: "#666", marginBottom: 16 },
   sectionTitle: { fontSize: 18, fontWeight: "600", marginTop: 20, marginBottom: 8 },
   statusCard: {
     flex: 1,
@@ -625,17 +715,19 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  highlightCard: {
+    borderWidth: 2,
+    borderColor: "#FA8232",
+  },
   statusNumber: {
     color: "#FA8232",
     fontSize: 16,
     fontWeight: "bold",
     marginTop: 4,
   },
-  statusAmmount: {
-    color: "#FA8232",
-    fontSize: 20,
+  highlightAmount: {
+    fontSize: 18,
     fontWeight: "800",
-    textAlign: "center",
   },
   statusText: {
     color: "#FA8232",
@@ -665,27 +757,49 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: 16,
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: "bold",
     color: "#333",
   },
-  balanceInfo: {
+  balanceBreakdown: {
     backgroundColor: "#F6F5F6",
     padding: 16,
     borderRadius: 12,
-    alignItems: "center",
     marginBottom: 20,
   },
-  balanceLabel: {
+  balanceRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  balanceRowLabel: {
     fontSize: 14,
     color: "#666",
-    marginBottom: 4,
   },
-  balanceAmount: {
-    fontSize: 28,
+  balanceRowValue: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#333",
+  },
+  negativeValue: {
+    color: "#eb3b5a",
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#E0E0E0",
+    marginVertical: 12,
+  },
+  totalLabel: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#333",
+  },
+  totalValue: {
+    fontSize: 20,
     fontWeight: "bold",
     color: "#FA8232",
   },

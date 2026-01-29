@@ -29,6 +29,7 @@ const AddProduct = () => {
   const [brandId, setBrandId] = useState("");
   const [productType, setProductType] = useState("physical");
   const [code, setCode] = useState("");
+  const [unit, setUnit] = useState("pc"); // ✅ NEW: Unit field with default value
   const [unitPrice, setUnitPrice] = useState("");
   const [minimumOrderQty, setMinimumOrderQty] = useState("1");
   const [currentStock, setCurrentStock] = useState("0");
@@ -46,6 +47,26 @@ const AddProduct = () => {
   const [author, setAuthor] = useState("");
   const [publishingHouse, setPublishingHouse] = useState("");
   const [deliveryType, setDeliveryType] = useState("");
+
+  // ✅ NEW: Common unit options
+  const unitOptions = [
+    { label: "Piece (pc)", value: "pc" },
+    { label: "Kilogram (kg)", value: "kg" },
+    { label: "Gram (g)", value: "g" },
+    { label: "Liter (L)", value: "L" },
+    { label: "Milliliter (ml)", value: "ml" },
+    { label: "Meter (m)", value: "m" },
+    { label: "Centimeter (cm)", value: "cm" },
+    { label: "Box", value: "box" },
+    { label: "Pack", value: "pack" },
+    { label: "Dozen", value: "dozen" },
+    { label: "Pair", value: "pair" },
+    { label: "Set", value: "set" },
+    { label: "Carton", value: "carton" },
+    { label: "Bundle", value: "bundle" },
+    { label: "Roll", value: "roll" },
+    { label: "Sheet", value: "sheet" },
+  ];
 
   // ------------------ Permissions ------------------
   useEffect(() => {
@@ -94,15 +115,10 @@ const AddProduct = () => {
     fetchCategories();
   }, []);
 
-
-
-
   // ------------------ Fetch Brands ------------------
 
   useEffect(() => {
-
     const fetchBrands = async () => {
-
       try {
         const token = await AsyncStorage.getItem("seller_token");
         const res = await fetch("https://yemi.store/api/v1/brands", {
@@ -132,19 +148,39 @@ const AddProduct = () => {
     fetchBrands();
   }, []);
 
-
-
   useEffect(() => {
     console.log("Categories:", categories);
     console.log("Brands:", brands);
   }, [categories, brands]);
 
-
-
   // ------------------ Submit Handler ------------------
 
   const handleAddProduct = async (publish: boolean) => {
+    // ✅ Validation
+    if (!name.trim()) {
+      Alert.alert("Validation Error", "Product name is required");
+      return;
+    }
+    if (!unitPrice || parseFloat(unitPrice) <= 0) {
+      Alert.alert("Validation Error", "Valid unit price is required");
+      return;
+    }
+    if (!selectedCategory) {
+      Alert.alert("Validation Error", "Please select a category");
+      return;
+    }
+    if (!code.trim()) {
+      Alert.alert("Validation Error", "Product SKU is required");
+      return;
+    }
+    if (!unit) {
+      Alert.alert("Validation Error", "Please select a unit");
+      return;
+    }
+
     try {
+      setIsPublishing(true);
+
       const token = await AsyncStorage.getItem("seller_token");
       if (!token) {
         Alert.alert("Error", "Seller token not found. Please log in again.");
@@ -152,14 +188,15 @@ const AddProduct = () => {
       }
 
       const formData = new FormData();
-      formData.append("name", name);
-      formData.append("description", description);
+      formData.append("name", name.trim());
+      formData.append("description", description.trim());
       formData.append("category_id", selectedCategory || "1");
       formData.append("sub_category_id", subCategoryId || "");
       formData.append("sub_sub_category_id", subSubCategoryId || "");
       formData.append("brand_id", brandId || "");
       formData.append("product_type", productType);
-      formData.append("code", code || `SKU-${Date.now()}`);
+      formData.append("code", code.trim() || `SKU-${Date.now()}`);
+      formData.append("unit", unit); // ✅ NEW: Add unit field
       formData.append("unit_price", unitPrice);
       formData.append("minimum_order_qty", minimumOrderQty);
       formData.append("current_stock", currentStock);
@@ -171,10 +208,15 @@ const AddProduct = () => {
       formData.append("shipping_cost", shippingCost);
       formData.append("published", publish ? "1" : "0");
 
+      // Add tax calculation if selected
+      if (taxCalculation) {
+        formData.append("tax_calculation", taxCalculation);
+      }
+
       // Add digital product fields if product type is digital
       if (productType.toLowerCase() === "digital") {
-        formData.append("author", author);
-        formData.append("publishing_house", publishingHouse);
+        formData.append("author", author.trim());
+        formData.append("publishing_house", publishingHouse.trim());
         formData.append("delivery_type", deliveryType);
       }
 
@@ -186,7 +228,7 @@ const AddProduct = () => {
           uri: localUri,
           type: thumbnail.type || "image/jpeg",
           name: thumbnail.name || "thumbnail.jpg",
-        });
+        } as any);
       }
 
       // Product Images
@@ -198,10 +240,13 @@ const AddProduct = () => {
           uri: localUri,
           type: img.type || "image/jpeg",
           name: img.name || `product_image_${i}.jpg`,
-        });
+        } as any);
       }
 
-      console.log("Uploading product...");
+      console.log("=".repeat(60));
+      console.log("🚀 Adding product with unit:", unit);
+      console.log("Publish status:", publish);
+      console.log("=".repeat(60));
 
       const res = await axios.post(
         "https://yemi.store/api/v2/seller/products/add",
@@ -215,13 +260,40 @@ const AddProduct = () => {
       );
 
       console.log("✅ Product added successfully:", res.data);
-      Alert.alert("Success", `Product ${publish ? "published" : "saved"}!`);
-      router.back();
+      Alert.alert(
+        "Success",
+        `Product ${publish ? "published" : "saved as draft"} successfully!`,
+        [
+          {
+            text: "OK",
+            onPress: () => {
+              router.replace({
+                pathname: "/myProducts",
+                params: {
+                  refresh: Date.now().toString(),
+                  resetFilters: "true"
+                }
+              });
+            }
+          }
+        ]
+      );
     } catch (err: any) {
       // Show backend error if available
       if (err.response && err.response.data) {
         console.error("❌ Backend error:", err.response.data);
-        Alert.alert("Backend Error", JSON.stringify(err.response.data));
+
+        // Check for validation errors
+        if (err.response.data.errors && Array.isArray(err.response.data.errors)) {
+          const errorMessages = err.response.data.errors
+            .map((e: any) => `• ${e.message || e.code}`)
+            .join('\n');
+          Alert.alert("Validation Errors", errorMessages);
+        } else if (err.response.data.message) {
+          Alert.alert("Error", err.response.data.message);
+        } else {
+          Alert.alert("Backend Error", JSON.stringify(err.response.data));
+        }
       } else {
         console.error("❌ Upload error:", err.message);
         Alert.alert(
@@ -229,6 +301,8 @@ const AddProduct = () => {
           "Failed to add product. Check your network or images."
         );
       }
+    } finally {
+      setIsPublishing(false);
     }
   };
 
@@ -281,7 +355,6 @@ const AddProduct = () => {
             value={description}
             onChangeText={setDescription}
             multiline
-
             inputStyle={{ textAlignVertical: "top", height: 120 }}
           />
         </View>
@@ -303,27 +376,22 @@ const AddProduct = () => {
               }}
             >
               <Picker.Item label="Select Category" value="" />
-
               {Array.isArray(categories) &&
                 categories.map((cat) => (
                   <Picker.Item key={cat.id} label={cat.name} value={cat.id} />
                 ))}
-
             </Picker>
-
-
           </View>
+
           {/* Select Sub-Category */}
           <Text style={styles.inputLabel}>Select Sub Category</Text>
           <View style={styles.inputForm}>
             <Picker
-              selectedValue={selectedCategory}
-              onValueChange={(itemValue) => setSelectedCategory(itemValue)}
+              selectedValue={subCategoryId}
+              onValueChange={(itemValue) => setSubCategoryId(itemValue)}
             >
               <Picker.Item label="Select Sub Category" value="" />
-              {categories.map((cat) => (
-                <Picker.Item key={cat.id} label={cat.name} value={cat.id} />
-              ))}
+              {/* Add subcategories here based on selectedCategory */}
             </Picker>
           </View>
 
@@ -331,15 +399,14 @@ const AddProduct = () => {
           <Text style={styles.inputLabel}>Sub-Sub Category</Text>
           <View style={styles.inputForm}>
             <Picker
-              selectedValue={selectedCategory}
-              onValueChange={(itemValue) => setSelectedCategory(itemValue)}
+              selectedValue={subSubCategoryId}
+              onValueChange={(itemValue) => setSubSubCategoryId(itemValue)}
             >
               <Picker.Item label="Select Sub Sub Category" value="" />
-              {brands.map((b) => (
-                <Picker.Item key={b.id} label={b.name} value={b.id} />
-              ))}
+              {/* Add sub-subcategories here based on subCategoryId */}
             </Picker>
           </View>
+
           {/* Select Brand */}
           <Text style={styles.inputLabel}>Brand</Text>
           <View style={styles.inputForm}>
@@ -348,7 +415,6 @@ const AddProduct = () => {
               onValueChange={(value) => setBrandId(value)}
             >
               <Picker.Item label="Select Brand" value="" />
-
               {Array.isArray(brands) &&
                 brands.map((b) => (
                   <Picker.Item
@@ -358,9 +424,8 @@ const AddProduct = () => {
                   />
                 ))}
             </Picker>
-
-
           </View>
+
           {/* Product Type Field */}
           <Text style={styles.inputLabel}>
             Product Type <Text style={styles.requiredStar}>*</Text>
@@ -370,8 +435,8 @@ const AddProduct = () => {
               selectedValue={productType}
               onValueChange={(value) => setProductType(value)}
             >
-              <Picker.Item label="Physical" value="Physical" />
-              <Picker.Item label="Digital" value="Digital" />
+              <Picker.Item label="Physical" value="physical" />
+              <Picker.Item label="Digital" value="digital" />
             </Picker>
           </View>
 
@@ -401,7 +466,6 @@ const AddProduct = () => {
                   <Picker.Item label="Select Delivery Type" value="" />
                   <Picker.Item label="Ready after Sell" value="ready after sell" />
                   <Picker.Item label="Ready Product" value="ready product" />
-
                 </Picker>
               </View>
             </>
@@ -413,7 +477,27 @@ const AddProduct = () => {
             value={code}
             onChangeText={setCode}
             required={true}
+            placeholder="e.g., SKU-12345"
           />
+
+          {/* ✅ NEW: Unit Field with Dropdown */}
+          <Text style={styles.inputLabel}>
+            Unit <Text style={styles.requiredStar}>*</Text>
+          </Text>
+          <View style={styles.inputForm}>
+            <Picker
+              selectedValue={unit}
+              onValueChange={(value) => setUnit(value)}
+            >
+              {unitOptions.map((option) => (
+                <Picker.Item
+                  key={option.value}
+                  label={option.label}
+                  value={option.value}
+                />
+              ))}
+            </Picker>
+          </View>
         </View>
 
         {/* Pricing & Inventory */}
@@ -425,7 +509,8 @@ const AddProduct = () => {
             value={unitPrice}
             onChangeText={setUnitPrice}
             required={true}
-            keyboardType="phone-pad"
+            keyboardType="numeric"
+            placeholder="0.00"
           />
           {/* MOQ Field */}
           <Input
@@ -433,7 +518,8 @@ const AddProduct = () => {
             value={minimumOrderQty}
             onChangeText={setMinimumOrderQty}
             required={true}
-            keyboardType="phone-pad"
+            keyboardType="numeric"
+            placeholder="1"
           />
           {/* Current Stock Field */}
           <Input
@@ -441,7 +527,8 @@ const AddProduct = () => {
             value={currentStock}
             onChangeText={setCurrentStock}
             required={true}
-            keyboardType="phone-pad"
+            keyboardType="numeric"
+            placeholder="0"
           />
           {/* Discount Type Field */}
           <Text style={styles.inputLabel}>Discount Type</Text>
@@ -460,7 +547,8 @@ const AddProduct = () => {
             label="Discount Amount ($)"
             value={discount}
             onChangeText={setDiscount}
-            keyboardType="phone-pad"
+            keyboardType="numeric"
+            placeholder="0"
           />
           {/* Tax Amount Field */}
           <Input
@@ -468,7 +556,8 @@ const AddProduct = () => {
             value={tax}
             onChangeText={setTax}
             required={true}
-            keyboardType="phone-pad"
+            keyboardType="numeric"
+            placeholder="0"
           />
 
           {/* Tax calculation Field */}
@@ -488,7 +577,8 @@ const AddProduct = () => {
             value={purchasePrice}
             onChangeText={setPurchasePrice}
             required={true}
-            keyboardType="phone-pad"
+            keyboardType="numeric"
+            placeholder="0.00"
           />
           {/* Shipping Cost Field*/}
           <Input
@@ -496,21 +586,24 @@ const AddProduct = () => {
             value={shippingCost}
             onChangeText={setShippingCost}
             required={true}
-            keyboardType="phone-pad"
+            keyboardType="numeric"
+            placeholder="0.00"
           />
         </View>
 
         {/* Buttons */}
         <View style={styles.buttonRow}>
           <PrimaryButton
-            title="Save as Draft"
+            title={isPublishing ? "Saving..." : "Save as Draft"}
             onPress={() => handleAddProduct(false)}
             variant="outline"
+            disabled={isPublishing}
           />
           <PrimaryButton
-            title="Publish Product"
+            title={isPublishing ? "Publishing..." : "Publish Product"}
             onPress={() => handleAddProduct(true)}
             variant="primary"
+            disabled={isPublishing}
           />
         </View>
       </ScrollView>
@@ -561,7 +654,6 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 4,
   },
-
   inputLabel: { marginBottom: 15, fontSize: 15, fontWeight: "600" },
   inputForm: {
     borderWidth: 1,

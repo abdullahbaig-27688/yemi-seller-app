@@ -1,14 +1,24 @@
 import AddProductHeader from "@/components/Header";
-import ImagePickerBox from "@/components/imagePickerBox";
 import Input from "@/components/input";
 import PrimaryButton from "@/components/primaryButton";
+import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Picker } from "@react-native-picker/picker";
 import axios from "axios";
 import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  View
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const EditProduct = () => {
@@ -38,7 +48,7 @@ const EditProduct = () => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // ✅ NEW: Add state for published and status - Default to published
+  // Published and status states
   const [published, setPublished] = useState("1");
   const [status, setStatus] = useState("1");
 
@@ -46,6 +56,9 @@ const EditProduct = () => {
   const [author, setAuthor] = useState("");
   const [publishingHouse, setPublishingHouse] = useState("");
   const [deliveryType, setDeliveryType] = useState("");
+
+  // Debug state to show loaded data
+  const [debugInfo, setDebugInfo] = useState<string>("");
 
   // ------------------ Permissions ------------------
   useEffect(() => {
@@ -108,7 +121,6 @@ const EditProduct = () => {
 
         console.log("🔍 Fetching product ID:", productId);
 
-        // Fetch all products from the list endpoint
         const res = await axios.get(
           `https://yemi.store/api/v2/seller/products/list`,
           { headers: { Authorization: `Bearer ${token}` } }
@@ -142,31 +154,43 @@ const EditProduct = () => {
         }
 
         console.log("✅ Found product:", product.name);
-        console.log("📊 Product published status:", product.published);
-        console.log("📊 Product status:", product.status);
 
-        // Populate all fields
+        // ✅ Populate ALL fields from product data
         setName(product.name || "");
-        setDescription(product.description || "");
-        setSelectedCategory(product.category_id?.toString() || "");
+        setDescription(product.details || product.description || "");
+
+        // ✅ Handle category_ids JSON parsing
+        let categoryId = "";
+        if (product.category_ids) {
+          try {
+            const categoryIdsArray = JSON.parse(product.category_ids);
+            if (Array.isArray(categoryIdsArray) && categoryIdsArray.length > 0) {
+              categoryId = categoryIdsArray[0]?.id?.toString() || "";
+            }
+          } catch (e) {
+            console.log("Could not parse category_ids, using category_id");
+          }
+        }
+        setSelectedCategory(categoryId || product.category_id?.toString() || "");
+
         setSubCategoryId(product.sub_category_id?.toString() || "");
         setSubSubCategoryId(product.sub_sub_category_id?.toString() || "");
         setBrandId(product.brand_id?.toString() || "");
-        setProductType(product.product_type || "physical");
+        setProductType(product.product_type?.toLowerCase() || "physical");
         setCode(product.code || "");
         setUnitPrice(product.unit_price?.toString() || "");
-        setMinimumOrderQty(product.minimum_order_qty?.toString() || "1");
+        setMinimumOrderQty(product.minimum_order_qty?.toString() || product.min_qty?.toString() || "1");
         setCurrentStock(product.current_stock?.toString() || "0");
-        setDiscountType(product.discount_type || "percent");
+        setDiscountType(product.discount_type || "flat");
         setDiscount(product.discount?.toString() || "0");
         setTax(product.tax?.toString() || "0");
-        setTaxCalculation(product.tax_calculation || "");
+        setTaxCalculation(product.tax_model || "");
         setShippingCost(product.shipping_cost?.toString() || "0");
         setPurchasePrice(product.purchase_price?.toString() || "");
         setUnit(product.unit || "pc");
 
-        // ✅ NEW: Always set to published when editing (force publish on update)
-        setPublished("1"); // Force to published
+        // ✅ Set published and status from existing product
+        setPublished(product.published?.toString() || "1");
         setStatus(product.status?.toString() || "1");
 
         // Digital product fields
@@ -174,43 +198,114 @@ const EditProduct = () => {
         setPublishingHouse(product.publishing_house || "");
         setDeliveryType(product.delivery_type || "");
 
-        // Thumbnail
-        if (product.thumbnail) {
-          setThumbnail({
-            uri: product.thumbnail,
-            name: "thumbnail.jpg",
-            type: "image/jpeg"
-          });
-        } else if (product.thumbnail_full_url?.path) {
-          setThumbnail({
+        // ✅ THUMBNAIL - Load existing thumbnail
+        let thumbnailData = null;
+        if (product.thumbnail_full_url?.path) {
+          thumbnailData = {
             uri: product.thumbnail_full_url.path,
             name: "thumbnail.jpg",
-            type: "image/jpeg"
-          });
+            type: "image/jpeg",
+            isExisting: true
+          };
+          console.log("📸 Loaded thumbnail:", product.thumbnail_full_url.path);
+        } else if (product.thumbnail) {
+          const thumbnailUri = product.thumbnail.startsWith('http')
+            ? product.thumbnail
+            : `https://yemi.store/storage/app/public/product/thumbnail/${product.thumbnail}`;
+
+          thumbnailData = {
+            uri: thumbnailUri,
+            name: "thumbnail.jpg",
+            type: "image/jpeg",
+            isExisting: true
+          };
+          console.log("📸 Loaded thumbnail:", thumbnailUri);
+        }
+        setThumbnail(thumbnailData);
+
+        // ✅ IMAGES - Load existing images with proper parsing
+        let loadedImages: any[] = [];
+
+        // Try images_full_url first (best option)
+        if (Array.isArray(product.images_full_url) && product.images_full_url.length > 0) {
+          loadedImages = product.images_full_url
+            .filter((img: any) => img?.path && img?.status === 200)
+            .map((img: any, i: number) => ({
+              uri: img.path,
+              name: `image_${i}.jpg`,
+              type: "image/jpeg",
+              isExisting: true
+            }));
+          console.log("📸 Loaded", loadedImages.length, "images from images_full_url");
+        }
+        // Try parsing images JSON string
+        else if (product.images) {
+          try {
+            let imagesArray: any[] = [];
+
+            // Parse if it's a string
+            if (typeof product.images === 'string') {
+              imagesArray = JSON.parse(product.images);
+            } else if (Array.isArray(product.images)) {
+              imagesArray = product.images;
+            }
+
+            // Handle different formats
+            loadedImages = imagesArray
+              .filter((img: any) => {
+                // Handle object format: {image_name: "...", storage: "..."}
+                if (typeof img === 'object' && img.image_name) {
+                  return true;
+                }
+                // Handle string format
+                if (typeof img === 'string' && img.trim() !== '') {
+                  return true;
+                }
+                return false;
+              })
+              .map((img: any, i: number) => {
+                let imagePath = '';
+
+                // Extract image name from object or string
+                if (typeof img === 'object' && img.image_name) {
+                  imagePath = img.image_name;
+                } else if (typeof img === 'string') {
+                  imagePath = img;
+                }
+
+                // Build full URL
+                const imageUri = imagePath.startsWith('http')
+                  ? imagePath
+                  : `https://yemi.store/storage/app/public/product/${imagePath.trim()}`;
+
+                return {
+                  uri: imageUri,
+                  name: `image_${i}.jpg`,
+                  type: "image/jpeg",
+                  isExisting: true
+                };
+              });
+            console.log("📸 Loaded", loadedImages.length, "images from images field");
+          } catch (e) {
+            console.log("❌ Error parsing images:", e);
+          }
         }
 
-        // Images
-        if (Array.isArray(product.images)) {
-          setImages(
-            product.images.map((img: string, i: number) => ({
-              uri: img,
-              name: `image_${i}.jpg`,
-              type: "image/jpeg"
-            }))
-          );
-        } else if (Array.isArray(product.images_full_url)) {
-          setImages(
-            product.images_full_url
-              .filter((img: any) => img?.path)
-              .map((img: any, i: number) => ({
-                uri: img.path,
-                name: `image_${i}.jpg`,
-                type: "image/jpeg"
-              }))
-          );
-        }
+        setImages(loadedImages);
+
+        // Set debug info for UI display
+        const debugText = `
+Product: ${product.name}
+Thumbnail: ${thumbnailData ? '✅ Loaded' : '❌ Not found'}
+Images: ${loadedImages.length} loaded
+Published: ${product.published}
+Status: ${product.status}
+        `.trim();
+        setDebugInfo(debugText);
 
         console.log("✅ Product data loaded successfully");
+        console.log("📊 Thumbnail state:", thumbnailData);
+        console.log("📊 Images state:", loadedImages);
 
       } catch (err: any) {
         console.error("❌ Error fetching product:", err.response?.data || err.message);
@@ -224,6 +319,47 @@ const EditProduct = () => {
 
     fetchProduct();
   }, [productId]);
+
+  // ------------------ Image Picker Handler ------------------
+  const handlePickThumbnail = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setThumbnail({
+        uri: result.assets[0].uri,
+        name: "thumbnail.jpg",
+        type: "image/jpeg",
+        isExisting: false
+      });
+    }
+  };
+
+  const handlePickImages = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true,
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      const newImages = result.assets.map((asset, i) => ({
+        uri: asset.uri,
+        name: `image_${i}.jpg`,
+        type: "image/jpeg",
+        isExisting: false
+      }));
+      setImages([...images, ...newImages]);
+    }
+  };
+
+  const handleRemoveImage = (index: number) => {
+    setImages(images.filter((_, i) => i !== index));
+  };
 
   // ------------------ Update Product Handler ------------------
   const handleUpdateProduct = async () => {
@@ -246,20 +382,6 @@ const EditProduct = () => {
       Alert.alert("Validation Error", "Product code must be at least 6 characters");
       return;
     }
-    if (!unit.trim()) {
-      Alert.alert("Validation Error", "Unit is required (e.g., pc, kg, liter)");
-      return;
-    }
-
-    // ✅ Warn if stock is 0
-    if (parseInt(currentStock) === 0) {
-      console.warn("⚠️ Warning: Current stock is 0 - product will show as Out of Stock");
-    }
-
-    // ✅ Warn if product is not published
-    if (published === "0") {
-      console.warn("⚠️ Warning: Product is unpublished - it will be saved as Draft");
-    }
 
     try {
       setIsUpdating(true);
@@ -275,9 +397,9 @@ const EditProduct = () => {
       // CRITICAL FOR LARAVEL: Add _method field to simulate PUT
       formData.append("_method", "PUT");
 
-      // ✅ CRITICAL: Add published and status to keep product visible
-      formData.append("published", published); // Keep product published state
-      formData.append("status", status); // Keep product active state
+      // Add published and status
+      formData.append("published", published);
+      formData.append("status", status);
 
       // Basic product info
       formData.append("name", name.trim());
@@ -288,7 +410,7 @@ const EditProduct = () => {
       formData.append("brand_id", brandId || "1");
       formData.append("product_type", productType);
       formData.append("code", code.trim());
-      formData.append("unit", unit.trim());
+      formData.append("unit", unit.trim() || "pc");
       formData.append("unit_price", unitPrice);
       formData.append("purchase_price", purchasePrice || "0");
       formData.append("minimum_order_qty", minimumOrderQty);
@@ -299,28 +421,9 @@ const EditProduct = () => {
       formData.append("shipping_cost", shippingCost || "0");
       formData.append("lang", "en");
 
-      // ✅ Add tax_calculation if present
       if (taxCalculation) {
         formData.append("tax_calculation", taxCalculation);
       }
-
-      // ✅ Add logging to see what we're sending
-      console.log("=".repeat(60));
-      console.log("🚀 UPDATE REQUEST DETAILS:");
-      console.log("Product ID:", productId);
-      console.log("URL:", `https://yemi.store/api/v2/seller/products/update/${productId}`);
-      console.log("FormData contents:");
-      console.log("  - name:", name.trim());
-      console.log("  - category_id:", selectedCategory);
-      console.log("  - product_type:", productType);
-      console.log("  - code:", code.trim());
-      console.log("  - unit:", unit.trim());
-      console.log("  - unit_price:", unitPrice);
-      console.log("  - current_stock:", currentStock);
-      console.log("  - brand_id:", brandId || "1");
-      console.log("  - published:", published); // ✅ Log this
-      console.log("  - status:", status); // ✅ Log this
-      console.log("=".repeat(60));
 
       // Digital product fields
       if (productType.toLowerCase() === "digital") {
@@ -329,20 +432,18 @@ const EditProduct = () => {
         if (deliveryType) formData.append("delivery_type", deliveryType);
       }
 
-      // Thumbnail - only if it's a NEW file
-      if (thumbnail?.uri && thumbnail.uri.startsWith("file://")) {
+      // Thumbnail - only if it's NEW
+      if (thumbnail?.uri && !thumbnail.isExisting) {
         console.log("📎 Adding NEW thumbnail");
         formData.append("thumbnail", {
           uri: thumbnail.uri,
           type: thumbnail.type || "image/jpeg",
           name: thumbnail.name || "thumbnail.jpg",
         } as any);
-      } else {
-        console.log("ℹ️ No new thumbnail (using existing)");
       }
 
       // Images - only NEW files
-      const newImages = images.filter(img => img.uri && img.uri.startsWith("file://"));
+      const newImages = images.filter(img => !img.isExisting);
       console.log("📎 Adding", newImages.length, "new images");
       newImages.forEach((img, i) => {
         formData.append("images[]", {
@@ -352,7 +453,6 @@ const EditProduct = () => {
         } as any);
       });
 
-      // USE POST with _method=PUT for Laravel
       const res = await axios.post(
         `https://yemi.store/api/v2/seller/products/update/${productId}`,
         formData,
@@ -365,54 +465,7 @@ const EditProduct = () => {
         }
       );
 
-      // ✅ Log the full response
-      console.log("=".repeat(60));
-      console.log("📥 UPDATE RESPONSE:");
-      console.log("Status:", res.status);
-      console.log("Status Text:", res.statusText);
-      console.log("Response Data:", JSON.stringify(res.data, null, 2));
-      console.log("=".repeat(60));
-
-      // Check if response has errors
-      if (res.data.errors && res.data.errors.length > 0) {
-        const errorMessages = res.data.errors
-          .map((e: any) => `• ${e.message}`)
-          .join('\n');
-        Alert.alert("Validation Errors", errorMessages);
-        return;
-      }
-
-      // ✅ Verify product still exists after update
-      console.log("🔍 Verifying product still exists...");
-
-      const verifyRes = await axios.get(
-        `https://yemi.store/api/v2/seller/products/list`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            Accept: "application/json"
-          }
-        }
-      );
-
-      let productsArray: any[] = [];
-      if (Array.isArray(verifyRes.data)) productsArray = verifyRes.data;
-      else if (Array.isArray(verifyRes.data.products)) productsArray = verifyRes.data.products;
-      else if (Array.isArray(verifyRes.data.products?.data)) productsArray = verifyRes.data.products.data;
-
-      console.log("🔍 Total products after update:", productsArray.length);
-
-      const updatedProduct = productsArray.find(p => p.id?.toString() === productId?.toString());
-
-      if (updatedProduct) {
-        console.log("✅ Product found after update!");
-        console.log("Updated product published:", updatedProduct.published);
-        console.log("Updated product status:", updatedProduct.status);
-        console.log("Updated product stock:", updatedProduct.current_stock);
-      } else {
-        console.log("❌ WARNING: Product NOT found after update!");
-        console.log("Available product IDs:", productsArray.map(p => p.id));
-      }
+      console.log("✅ Update successful:", res.data);
 
       Alert.alert(
         "Success",
@@ -434,36 +487,8 @@ const EditProduct = () => {
       );
 
     } catch (err: any) {
-      console.log("❌ Update error occurred");
-
-      if (axios.isAxiosError(err)) {
-        if (err.response) {
-          console.log("❌ Response error:", JSON.stringify(err.response.data));
-
-          const responseData = err.response.data;
-          const errors = responseData?.errors;
-
-          if (errors && Array.isArray(errors)) {
-            const errorMessages = errors
-              .map((e: any) => `• ${e.message || e.code}`)
-              .join('\n');
-            Alert.alert("Validation Errors", errorMessages);
-          } else if (responseData?.message) {
-            Alert.alert("Update Failed", responseData.message);
-          } else {
-            Alert.alert("Update Failed", "Please check all required fields");
-          }
-        } else if (err.request) {
-          console.log("❌ Network error");
-          Alert.alert("Network Error", "Please check your internet connection.");
-        } else {
-          console.log("❌ Request error:", err.message);
-          Alert.alert("Error", err.message);
-        }
-      } else {
-        console.log("❌ Unexpected error:", err);
-        Alert.alert("Error", "An unexpected error occurred");
-      }
+      console.log("❌ Update error:", err.response?.data || err.message);
+      Alert.alert("Error", "Failed to update product. Please try again.");
     } finally {
       setIsUpdating(false);
     }
@@ -496,39 +521,66 @@ const EditProduct = () => {
 
       <ScrollView
         style={styles.content}
-        contentContainerStyle={{ paddingBottom: "30%" }}
+        contentContainerStyle={{ paddingBottom: 60 }}
         showsVerticalScrollIndicator={false}
       >
+        {/* Debug Info */}
+        {/* {debugInfo && (
+          <View style={styles.debugBox}>
+            <Text style={styles.debugText}>{debugInfo}</Text>
+          </View>
+        )} */}
+
         <Text style={styles.info}>Product Information</Text>
         <View style={styles.information}>
-          <ImagePickerBox
-            label="Product Thumbnail"
-            onImagesChange={(uris) =>
-              setThumbnail(
-                uris[0]
-                  ? {
-                    uri: uris[0].startsWith("file://") ? uris[0] : `file://${uris[0]}`,
-                    type: "image/jpeg",
-                    name: "thumbnail.jpg"
-                  }
-                  : null
-              )
-            }
-            existingImage={thumbnail?.uri}
-          />
-          <ImagePickerBox
-            label="Product Images"
-            onImagesChange={(uris) =>
-              setImages(
-                uris.map((uri, i) => ({
-                  uri: uri.startsWith("file://") ? uri : `file://${uri}`,
-                  type: "image/jpeg",
-                  name: `product_image_${i}.jpg`,
-                }))
-              )
-            }
-            existingImages={images.map((i) => i.uri)}
-          />
+          {/* Thumbnail Section */}
+          <View style={styles.imageSection}>
+            <Text style={styles.inputLabel}>Product Thumbnail</Text>
+            {thumbnail?.uri ? (
+              <View style={styles.thumbnailPreview}>
+                <Image source={{ uri: thumbnail.uri }} style={styles.thumbnailImage} />
+                <Pressable
+                  style={styles.removeButton}
+                  onPress={() => setThumbnail(null)}
+                >
+                  <Ionicons name="close-circle" size={24} color="#eb3b5a" />
+                </Pressable>
+              </View>
+            ) : (
+              <Pressable style={styles.uploadBox} onPress={handlePickThumbnail}>
+                <Ionicons name="camera-outline" size={40} color="#FA8232" />
+                <Text style={styles.uploadText}>Tap to upload thumbnail</Text>
+              </Pressable>
+            )}
+          </View>
+
+          {/* Images Section */}
+          <View style={styles.imageSection}>
+            <Text style={styles.inputLabel}>Product Images ({images.length})</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {images.map((img, index) => (
+                <View key={index} style={styles.imagePreview}>
+                  <Image source={{ uri: img.uri }} style={styles.productImage} />
+                  <Pressable
+                    style={styles.removeImageButton}
+                    onPress={() => handleRemoveImage(index)}
+                  >
+                    <Ionicons name="close-circle" size={20} color="#eb3b5a" />
+                  </Pressable>
+                  {img.isExisting && (
+                    <View style={styles.existingBadge}>
+                      <Text style={styles.existingText}>Existing</Text>
+                    </View>
+                  )}
+                </View>
+              ))}
+              <Pressable style={styles.addImageBox} onPress={handlePickImages}>
+                <Ionicons name="add-circle-outline" size={40} color="#FA8232" />
+                <Text style={styles.uploadText}>Add More</Text>
+              </Pressable>
+            </ScrollView>
+          </View>
+
           <Input
             label="Product Name"
             value={name}
@@ -547,7 +599,6 @@ const EditProduct = () => {
         {/* Category & Brand */}
         <Text style={styles.info}>General Setup</Text>
         <View style={styles.setup}>
-          {/* Select Category */}
           <Text style={styles.inputLabel}>
             Select Category <Text style={styles.requiredStar}>*</Text>
           </Text>
@@ -555,118 +606,52 @@ const EditProduct = () => {
             <Picker
               selectedValue={selectedCategory}
               onValueChange={(value) => {
-                console.log("Category selected:", value);
                 setSelectedCategory(value.toString());
                 setSubCategoryId("");
                 setSubSubCategoryId("");
               }}
             >
               <Picker.Item label="Select Category" value="" />
-              {Array.isArray(categories) &&
-                categories.map((cat) => (
-                  <Picker.Item
-                    key={cat.id}
-                    label={cat.name}
-                    value={cat.id.toString()}
-                  />
-                ))}
-            </Picker>
-          </View>
-          {/* Select Sub-Category */}
-          <Text style={styles.inputLabel}>Select Sub Category</Text>
-          <View style={styles.inputForm}>
-            <Picker
-              selectedValue={subCategoryId}
-              onValueChange={(value) => setSubCategoryId(value)}
-            >
-              <Picker.Item label="Select Sub Category" value="" />
-              {/* Add subcategories here based on selectedCategory */}
+              {categories.map((cat) => (
+                <Picker.Item
+                  key={cat.id}
+                  label={cat.name}
+                  value={cat.id.toString()}
+                />
+              ))}
             </Picker>
           </View>
 
-          {/* Select sub-sub category */}
-          <Text style={styles.inputLabel}>Sub-Sub Category</Text>
-          <View style={styles.inputForm}>
-            <Picker
-              selectedValue={subSubCategoryId}
-              onValueChange={(value) => setSubSubCategoryId(value)}
-            >
-              <Picker.Item label="Select Sub Sub Category" value="" />
-              {/* Add sub-subcategories here based on subCategoryId */}
-            </Picker>
-          </View>
-
-          {/* Select Brand */}
           <Text style={styles.inputLabel}>Brand</Text>
           <View style={styles.inputForm}>
             <Picker
               selectedValue={brandId}
-              onValueChange={(value) => {
-                console.log("Brand selected:", value);
-                setBrandId(value.toString());
-              }}
+              onValueChange={(value) => setBrandId(value.toString())}
             >
               <Picker.Item label="Select Brand" value="" />
-              {Array.isArray(brands) &&
-                brands.map((b) => (
-                  <Picker.Item
-                    key={b.id}
-                    label={b.name}
-                    value={b.id.toString()}
-                  />
-                ))}
+              {brands.map((b) => (
+                <Picker.Item
+                  key={b.id}
+                  label={b.name}
+                  value={b.id.toString()}
+                />
+              ))}
             </Picker>
           </View>
 
-          {/* Product Type Field */}
           <Text style={styles.inputLabel}>
             Product Type <Text style={styles.requiredStar}>*</Text>
           </Text>
           <View style={styles.inputForm}>
             <Picker
               selectedValue={productType}
-              onValueChange={(value) => {
-                console.log("Product type selected:", value);
-                setProductType(value);
-              }}
+              onValueChange={(value) => setProductType(value)}
             >
               <Picker.Item label="Physical" value="physical" />
               <Picker.Item label="Digital" value="digital" />
             </Picker>
           </View>
 
-          {/* Digital Product Specific Fields */}
-          {productType.toLowerCase() === "digital" && (
-            <>
-              <Input
-                label="Author"
-                value={author}
-                onChangeText={setAuthor}
-                required={true}
-              />
-              <Input
-                label="Publishing House"
-                value={publishingHouse}
-                onChangeText={setPublishingHouse}
-                required={true}
-              />
-              <Text style={styles.inputLabel}>
-                Delivery Type <Text style={styles.requiredStar}>*</Text>
-              </Text>
-              <View style={styles.inputForm}>
-                <Picker
-                  selectedValue={deliveryType}
-                  onValueChange={(itemValue) => setDeliveryType(itemValue)}
-                >
-                  <Picker.Item label="Select Delivery Type" value="" />
-                  <Picker.Item label="Ready after Sell" value="ready after sell" />
-                  <Picker.Item label="Ready Product" value="ready product" />
-                </Picker>
-              </View>
-            </>
-          )}
-
-          {/* Product SKU Code Field */}
           <Input
             label="Product SKU"
             value={code}
@@ -713,7 +698,6 @@ const EditProduct = () => {
               selectedValue={discountType}
               onValueChange={(itemValue) => setDiscountType(itemValue)}
             >
-              <Picker.Item label="Select Discount Type" value="" />
               <Picker.Item label="Flat" value="flat" />
               <Picker.Item label="Percentage" value="percentage" />
             </Picker>
@@ -732,19 +716,6 @@ const EditProduct = () => {
             required={true}
             keyboardType="numeric"
           />
-
-          <Text style={styles.inputLabel}>Tax calculation</Text>
-          <View style={styles.inputForm}>
-            <Picker
-              selectedValue={taxCalculation}
-              onValueChange={(itemValue) => setTaxCalculation(itemValue)}
-            >
-              <Picker.Item label="Select Tax Calculation" value="" />
-              <Picker.Item label="Include with Product" value="include" />
-              <Picker.Item label="Exclude with Product" value="exclude" />
-            </Picker>
-          </View>
-
           <Input
             label="Purchase Price ($)"
             value={purchasePrice}
@@ -761,7 +732,7 @@ const EditProduct = () => {
           />
         </View>
 
-        {/* ✅ Product Status Section */}
+        {/* Product Status */}
         <Text style={styles.info}>Product Status</Text>
         <View style={styles.information}>
           <View style={styles.switchContainer}>
@@ -884,5 +855,94 @@ const styles = StyleSheet.create({
   switchDescription: {
     fontSize: 13,
     color: "#666",
+  },
+  debugBox: {
+    backgroundColor: "#f0f0f0",
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  debugText: {
+    fontSize: 12,
+    color: "#333",
+    fontFamily: "monospace",
+  },
+  imageSection: {
+    marginBottom: 20,
+  },
+  thumbnailPreview: {
+    position: "relative",
+    alignSelf: "flex-start",
+  },
+  thumbnailImage: {
+    width: 150,
+    height: 150,
+    borderRadius: 10,
+    backgroundColor: "#f0f0f0",
+  },
+  removeButton: {
+    position: "absolute",
+    top: -8,
+    right: -8,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+  },
+  uploadBox: {
+    width: 150,
+    height: 150,
+    borderWidth: 2,
+    borderColor: "#FA8232",
+    borderStyle: "dashed",
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#fff5f0",
+  },
+  uploadText: {
+    marginTop: 8,
+    fontSize: 12,
+    color: "#666",
+  },
+  imagePreview: {
+    position: "relative",
+    marginRight: 10,
+  },
+  productImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 8,
+    backgroundColor: "#f0f0f0",
+  },
+  removeImageButton: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+    backgroundColor: "#fff",
+    borderRadius: 10,
+  },
+  existingBadge: {
+    position: "absolute",
+    bottom: 4,
+    left: 4,
+    backgroundColor: "#2dce89",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  existingText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "600",
+  },
+  addImageBox: {
+    width: 100,
+    height: 100,
+    borderWidth: 2,
+    borderColor: "#FA8232",
+    borderStyle: "dashed",
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#fff5f0",
   },
 });
