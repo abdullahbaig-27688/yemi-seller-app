@@ -521,7 +521,7 @@ Status: ${product.status}
 
       <ScrollView
         style={styles.content}
-        contentContainerStyle={{ paddingBottom: 60 }}
+        contentContainerStyle={{ paddingBottom: 80 }}
         showsVerticalScrollIndicator={false}
       >
         {/* Debug Info */}

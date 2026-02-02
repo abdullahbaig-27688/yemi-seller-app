@@ -90,26 +90,10 @@ const HomeScreen = () => {
   const [isWithdrawing, setIsWithdrawing] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  // ✅ IMPROVED: Calculate withdrawable balance with proper safeguards
-  const withdrawableBalance = Math.max(
-    0,
-    parseFloat(earnings.totalEarning || 0) -
-    parseFloat(earnings.withdrawn || 0) -
-    parseFloat(earnings.pendingWithdraw || 0)
-  );
-
-  // Log for debugging
-  useEffect(() => {
-    console.log("=".repeat(60));
-    console.log("💰 BALANCE CALCULATION:");
-    console.log("Total Earning:", earnings.totalEarning, "Type:", typeof earnings.totalEarning);
-    console.log("Withdrawn:", earnings.withdrawn, "Type:", typeof earnings.withdrawn);
-    console.log("Pending Withdraw:", earnings.pendingWithdraw, "Type:", typeof earnings.pendingWithdraw);
-    console.log("❓ Formula: Total - Withdrawn - Pending");
-    console.log(`❓ ${earnings.totalEarning} - ${earnings.withdrawn} - ${earnings.pendingWithdraw} = ${withdrawableBalance}`);
-    console.log("✅ Calculated Withdrawable:", withdrawableBalance);
-    console.log("=".repeat(60));
-  }, [earnings, withdrawableBalance]);
+  // ✅ IMPROVED: Calculate withdrawable balance
+  // Based on Web Dashboard, 'totalEarning' from API represents the Current Available Balance.
+  // We do not subtract pending or withdrawn amounts as they are likely already accounted for.
+  const withdrawableBalance = earnings.totalEarning || 0;
 
   // --- Quick Actions dynamically using API values ---
   const quickActions = [
@@ -119,13 +103,7 @@ const HomeScreen = () => {
       ammount: `$${withdrawableBalance.toFixed(2)}`,
       icon: icons.withdraw,
       onPress: () => {
-        if (withdrawableBalance <= 0) {
-          Alert.alert(
-            "No Balance Available",
-            "You don't have any balance available to withdraw at this time."
-          );
-          return;
-        }
+        // Allow opening modal even if balance is 0 so user can see the UI
         setWithdrawModalVisible(true);
       },
       highlight: true,
@@ -133,37 +111,37 @@ const HomeScreen = () => {
     {
       id: "2",
       title: "Pending Withdraw",
-      ammount: `$${parseFloat(earnings.pendingWithdraw || 0).toFixed(2)}`,
+      ammount: `$${(earnings.pendingWithdraw || 0).toFixed(2)}`,
       icon: icons.peningWithdraw,
     },
     {
       id: "3",
       title: "Already Withdrawn",
-      ammount: `$${parseFloat(earnings.withdrawn || 0).toFixed(2)}`,
+      ammount: `$${(earnings.withdrawn || 0).toFixed(2)}`,
       icon: icons.alreadyWithdrawn,
     },
     {
       id: "4",
       title: "Total Commission Given",
-      ammount: `$${parseFloat(earnings.adminCommission || 0).toFixed(2)}`,
+      ammount: `$${(earnings.adminCommission || 0).toFixed(2)}`,
       icon: icons.alreadyWithdrawn,
     },
     {
       id: "5",
       title: "Total Delivery Charge Earned",
-      ammount: `$${parseFloat(earnings.deliveryManChargeEarned || 0).toFixed(2)}`,
+      ammount: `$${(earnings.deliveryManChargeEarned || 0).toFixed(2)}`,
       icon: icons.delieveryCharges,
     },
     {
       id: "6",
       title: "Total Tax Given",
-      ammount: `$${parseFloat(earnings.collectedTotalTax || 0).toFixed(2)}`,
+      ammount: `$${(earnings.collectedTotalTax || 0).toFixed(2)}`,
       icon: icons.taxGiven,
     },
     {
       id: "7",
       title: "Collected Cash",
-      ammount: `$${parseFloat(earnings.collectedCash || 0).toFixed(2)}`,
+      ammount: `$${(earnings.collectedCash || 0).toFixed(2)}`,
       icon: icons.collectedCash,
     },
   ];
@@ -270,7 +248,6 @@ const HomeScreen = () => {
 
       try {
         const json = JSON.parse(text);
-        console.log("📊 Parsed earnings data:", json);
 
         if (json.success && json.data) {
           // ✅ Convert all values to numbers with proper handling
@@ -322,22 +299,16 @@ const HomeScreen = () => {
     }
 
     // ✅ Check against current withdrawable balance
-    const currentWithdrawable = Math.max(
-      0,
-      parseFloat(earnings.totalEarning || 0) -
-      parseFloat(earnings.withdrawn || 0) -
-      parseFloat(earnings.pendingWithdraw || 0)
-    );
+    const currentWithdrawable = earnings.totalEarning || 0;
 
     if (amount > currentWithdrawable) {
       Alert.alert(
         "Insufficient Balance",
         `You can only withdraw up to $${currentWithdrawable.toFixed(2)}.\n\n` +
         `Current Status:\n` +
-        `• Total Earnings: $${parseFloat(earnings.totalEarning || 0).toFixed(2)}\n` +
-        `• Already Withdrawn: $${parseFloat(earnings.withdrawn || 0).toFixed(2)}\n` +
-        `• Pending Withdrawals: $${parseFloat(earnings.pendingWithdraw || 0).toFixed(2)}\n` +
-        `• Available: $${currentWithdrawable.toFixed(2)}`
+        `• Current Balance: $${(earnings.totalEarning || 0).toFixed(2)}\n` +
+        `• Pending Withdrawals: $${(earnings.pendingWithdraw || 0).toFixed(2)}\n` +
+        `• Available to Withdraw: $${currentWithdrawable.toFixed(2)}`
       );
       return;
     }
@@ -490,25 +461,21 @@ const HomeScreen = () => {
             {/* ✅ Enhanced balance breakdown */}
             <View style={styles.balanceBreakdown}>
               <View style={styles.balanceRow}>
-                <Text style={styles.balanceRowLabel}>Total Earnings:</Text>
-                <Text style={styles.balanceRowValue}>${parseFloat(earnings.totalEarning || 0).toFixed(2)}</Text>
-              </View>
-              <View style={styles.balanceRow}>
-                <Text style={styles.balanceRowLabel}>Already Withdrawn:</Text>
-                <Text style={[styles.balanceRowValue, styles.negativeValue]}>
-                  -${parseFloat(earnings.withdrawn || 0).toFixed(2)}
-                </Text>
-              </View>
-              <View style={styles.balanceRow}>
-                <Text style={styles.balanceRowLabel}>Pending Withdrawals:</Text>
-                <Text style={[styles.balanceRowValue, styles.negativeValue]}>
-                  -${parseFloat(earnings.pendingWithdraw || 0).toFixed(2)}
-                </Text>
+                <Text style={styles.balanceRowLabel}>Current Balance:</Text>
+                <Text style={styles.totalValue}>${(earnings.totalEarning || 0).toFixed(2)}</Text>
               </View>
               <View style={styles.divider} />
               <View style={styles.balanceRow}>
-                <Text style={styles.totalLabel}>Available to Withdraw:</Text>
-                <Text style={styles.totalValue}>${withdrawableBalance.toFixed(2)}</Text>
+                <Text style={styles.balanceRowLabel}>Pending Withdrawals:</Text>
+                <Text style={[styles.balanceRowValue, { color: "#FA8232" }]}>
+                  ${(earnings.pendingWithdraw || 0).toFixed(2)}
+                </Text>
+              </View>
+              <View style={styles.balanceRow}>
+                <Text style={styles.balanceRowLabel}>Total Withdrawn:</Text>
+                <Text style={styles.balanceRowValue}>
+                  ${(earnings.withdrawn || 0).toFixed(2)}
+                </Text>
               </View>
             </View>
 
