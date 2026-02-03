@@ -43,7 +43,7 @@ const getStarted = () => {
       <View>
         <Text style={styles.title}>“Shop Smart. Shop Yemi.”</Text>
       </View>
-      
+
       {/* </View> */}
 
       {/* Secondary Button with Arrow */}
@@ -53,9 +53,9 @@ const getStarted = () => {
           title="Let's get started"
           onPress={() => router.navigate("../registerScreen")}
           variant="primary"
-           fullWidth // ✅ take full width vertically
-          
-          
+          fullWidth // ✅ take full width vertically
+
+
         />
 
         <View style={styles.buttonRow}>
@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
     height: 20,
     width: 20,
     marginLeft: 8,
-    marginTop: 2,
+    marginTop: 10,
   },
 
   mainview: {

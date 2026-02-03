@@ -4,21 +4,27 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
+  Animated,
+  Dimensions,
   FlatList,
   Image,
   Modal,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
-  View
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+const CARD_WIDTH = (SCREEN_WIDTH - 52) / 2;
 
 const icons = {
   pending: require("@/assets/images/icons/pending.png"),
@@ -38,25 +44,14 @@ const icons = {
 };
 
 const statusCards = [
-  { id: "1", title: "Pending", icon: icons.pending },
-  { id: "2", title: "Confirmed", icon: icons.confirmed },
-  { id: "3", title: "Packaging", icon: icons.packaging },
-  { id: "4", title: "Out for Delivery", icon: icons.delivery },
-  { id: "5", title: "Delivered", icon: icons.deliverd },
-  { id: "6", title: "Returned", icon: icons.returned },
-  { id: "7", title: "Failed to Deliver", icon: icons.failed },
-  { id: "8", title: "Cancelled", icon: icons.cancelled },
-];
-
-const gradients = [
-  ["#F6F5F6", "#F2F4F5"],
-  ["#F6F5F6", "#F2F4F5"],
-  ["#F6F5F6", "#F2F4F5"],
-  ["#F6F5F6", "#F2F4F5"],
-  ["#F6F5F6", "#F2F4F5"],
-  ["#F6F5F6", "#F2F4F5"],
-  ["#F6F5F6", "#F2F4F5"],
-  ["#F6F5F6", "#F2F4F5"],
+  { id: "1", title: "Pending", icon: icons.pending, color: "#FFF4E6" },
+  { id: "2", title: "Confirmed", icon: icons.confirmed, color: "#E8F5E9" },
+  { id: "3", title: "Packaging", icon: icons.packaging, color: "#F3E5F5" },
+  { id: "4", title: "Out for Delivery", icon: icons.delivery, color: "#E3F2FD" },
+  { id: "5", title: "Delivered", icon: icons.deliverd, color: "#E8F5E9" },
+  { id: "6", title: "Returned", icon: icons.returned, color: "#FFF9C4" },
+  { id: "7", title: "Failed to Deliver", icon: icons.failed, color: "#FFEBEE" },
+  { id: "8", title: "Cancelled", icon: icons.cancelled, color: "#ECEFF1" },
 ];
 
 const statusEndpoints = {
@@ -68,6 +63,198 @@ const statusEndpoints = {
   Returned: "returned",
   "Failed to Deliver": "failed-to-deliver",
   Cancelled: "canceled",
+};
+
+/* ---------------- ANIMATED STATUS CARD ---------------- */
+const AnimatedStatusCard = ({ item, index, onPress, count }) => {
+  const scaleAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const [pressed, setPressed] = useState(false);
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        friction: 8,
+        tension: 40,
+        delay: index * 60,
+        useNativeDriver: true,
+      }),
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 400,
+        delay: index * 60,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  const handlePressIn = () => {
+    setPressed(true);
+    Animated.spring(scaleAnim, {
+      toValue: 0.92,
+      friction: 3,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    setPressed(false);
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      friction: 3,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  return (
+    <Animated.View
+      style={{
+        flex: 1,
+        transform: [{ scale: scaleAnim }],
+        opacity: fadeAnim,
+        marginHorizontal: 6,
+        marginBottom: 12,
+      }}
+    >
+      <Pressable
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+      >
+        <LinearGradient
+          colors={[item.color, "#FFFFFF"]}
+          style={styles.statusCard}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          <View style={[styles.iconCircle, { backgroundColor: item.color }]}>
+            <Image source={item.icon} style={styles.cardIcon} />
+          </View>
+          <Text style={styles.statusText} numberOfLines={2}>
+            {item.title}
+          </Text>
+          <View style={styles.countBadge}>
+            <Text style={styles.countText}>{count}</Text>
+          </View>
+        </LinearGradient>
+      </Pressable>
+    </Animated.View>
+  );
+};
+
+/* ---------------- ANIMATED FINANCIAL CARD ---------------- */
+const AnimatedFinancialCard = ({ item, index, onPress }) => {
+  const scaleAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        friction: 8,
+        tension: 40,
+        delay: index * 60,
+        useNativeDriver: true,
+      }),
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 400,
+        delay: index * 60,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    if (item.highlight) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.02,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    }
+  }, []);
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.92,
+      friction: 3,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      friction: 3,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  return (
+    <Animated.View
+      style={{
+        flex: 1,
+        transform: [{ scale: item.highlight ? pulseAnim : scaleAnim }],
+        opacity: fadeAnim,
+        marginHorizontal: 6,
+        marginBottom: 12,
+      }}
+    >
+      <Pressable
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        disabled={!onPress}
+      >
+        <LinearGradient
+          colors={
+            item.highlight
+              ? ["#FA8232", "#FF6B35"]
+              : ["#FFFFFF", "#F8F9FA"]
+          }
+          style={[
+            styles.financialCard,
+            item.highlight && styles.highlightCard,
+          ]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          {item.highlight && (
+            <View style={styles.primaryBadge}>
+              <Ionicons name="star" size={10} color="#FFF" />
+              <Text style={styles.primaryBadgeText}>PRIMARY</Text>
+            </View>
+          )}
+          <View style={[styles.finIconCircle, item.highlight && styles.highlightIconCircle]}>
+            <Image source={item.icon} style={styles.finCardIcon} />
+          </View>
+          <Text
+            style={[styles.finCardTitle, item.highlight && styles.highlightText]}
+            numberOfLines={2}
+          >
+            {item.title}
+          </Text>
+          <Text
+            style={[styles.finCardAmount, item.highlight && styles.highlightAmountText]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+          >
+            {item.ammount}
+          </Text>
+        </LinearGradient>
+      </Pressable>
+    </Animated.View>
+  );
 };
 
 const HomeScreen = () => {
@@ -90,12 +277,45 @@ const HomeScreen = () => {
   const [isWithdrawing, setIsWithdrawing] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  // ✅ IMPROVED: Calculate withdrawable balance
-  // Based on Web Dashboard, 'totalEarning' from API represents the Current Available Balance.
-  // We do not subtract pending or withdrawn amounts as they are likely already accounted for.
+  const menuSlideAnim = useRef(new Animated.Value(-260)).current;
+  const headerFadeAnim = useRef(new Animated.Value(0)).current;
+  const greetingSlideAnim = useRef(new Animated.Value(-50)).current;
+
   const withdrawableBalance = earnings.totalEarning || 0;
 
-  // --- Quick Actions dynamically using API values ---
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(headerFadeAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.spring(greetingSlideAnim, {
+        toValue: 0,
+        friction: 8,
+        tension: 40,
+        delay: 200,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  useEffect(() => {
+    if (menuVisible) {
+      Animated.timing(menuSlideAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(menuSlideAnim, {
+        toValue: -260,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [menuVisible]);
+
   const quickActions = [
     {
       id: "1",
@@ -103,7 +323,6 @@ const HomeScreen = () => {
       ammount: `$${withdrawableBalance.toFixed(2)}`,
       icon: icons.withdraw,
       onPress: () => {
-        // Allow opening modal even if balance is 0 so user can see the UI
         setWithdrawModalVisible(true);
       },
       highlight: true,
@@ -250,7 +469,6 @@ const HomeScreen = () => {
         const json = JSON.parse(text);
 
         if (json.success && json.data) {
-          // ✅ Convert all values to numbers with proper handling
           const earningsData = {
             totalEarning: parseFloat(json.data.totalEarning || 0),
             withdrawn: parseFloat(json.data.withdrawn || 0),
@@ -276,18 +494,15 @@ const HomeScreen = () => {
     fetchEarnings();
   }, []);
 
-  // ✅ Refresh handler
   const onRefresh = async () => {
     setRefreshing(true);
     await Promise.all([fetchEarnings(), fetchOrderCounts()]);
     setRefreshing(false);
   };
 
-  // ✅ IMPROVED: Handle withdraw balance with better validation
   const handleWithdraw = async () => {
     const amount = parseFloat(withdrawAmount);
 
-    // Validation
     if (!withdrawAmount || isNaN(amount)) {
       Alert.alert("Invalid Amount", "Please enter a valid amount to withdraw");
       return;
@@ -298,7 +513,6 @@ const HomeScreen = () => {
       return;
     }
 
-    // ✅ Check against current withdrawable balance
     const currentWithdrawable = earnings.totalEarning || 0;
 
     if (amount > currentWithdrawable) {
@@ -357,7 +571,6 @@ const HomeScreen = () => {
       }
 
       if (response.ok || result.success || responseText.includes("successfully")) {
-        // ✅ Optimistic update: Update pending withdraw immediately
         setEarnings(prev => ({
           ...prev,
           pendingWithdraw: parseFloat(prev.pendingWithdraw || 0) + amount
@@ -373,7 +586,6 @@ const HomeScreen = () => {
                 setWithdrawModalVisible(false);
                 setWithdrawAmount("");
                 setWithdrawNote("");
-                // ✅ Fetch fresh data from server
                 await fetchEarnings();
               },
             },
@@ -417,12 +629,23 @@ const HomeScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
-        <Pressable onPress={toggleMenu} style={styles.hamburger}>
-          <Ionicons name="menu" size={20} color="#fff" />
-        </Pressable>
-        <HomeHeader title="Dashboard" />
-      </View>
+      <Animated.View style={{ opacity: headerFadeAnim }}>
+        <LinearGradient
+          colors={["#FA8232", "#FF6B35"]}
+          style={styles.header}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+        >
+          <Pressable
+            onPress={toggleMenu}
+            style={styles.hamburger}
+            android_ripple={{ color: "#FFFFFF40", radius: 20 }}
+          >
+            <Ionicons name="menu" size={26} color="#fff" />
+          </Pressable>
+          <HomeHeader title="Dashboard" />
+        </LinearGradient>
+      </Animated.View>
 
       {/* Menu Overlay */}
       {menuVisible && (
@@ -430,9 +653,14 @@ const HomeScreen = () => {
           style={styles.menuOverlay}
           onPress={() => setMenuVisible(false)}
         >
-          <View style={styles.menuContainer}>
+          <Animated.View
+            style={[
+              styles.menuContainer,
+              { transform: [{ translateX: menuSlideAnim }] },
+            ]}
+          >
             <VerticalMenu onSelect={handleMenuSelect} />
-          </View>
+          </Animated.View>
         </Pressable>
       )}
 
@@ -451,94 +679,130 @@ const HomeScreen = () => {
             style={styles.modalContent}
             onPress={(e) => e.stopPropagation()}
           >
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Withdraw Balance</Text>
-              <Pressable onPress={() => setWithdrawModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#333" />
-              </Pressable>
-            </View>
-
-            {/* ✅ Enhanced balance breakdown */}
-            <View style={styles.balanceBreakdown}>
-              <View style={styles.balanceRow}>
-                <Text style={styles.balanceRowLabel}>Current Balance:</Text>
-                <Text style={styles.totalValue}>${(earnings.totalEarning || 0).toFixed(2)}</Text>
+            <LinearGradient
+              colors={["#FFFFFF", "#F8F9FA"]}
+              style={styles.modalGradient}
+            >
+              <View style={styles.modalHeader}>
+                <View style={styles.modalTitleContainer}>
+                  <Ionicons name="wallet" size={24} color="#FA8232" />
+                  <Text style={styles.modalTitle}>Withdraw Balance</Text>
+                </View>
+                <Pressable
+                  onPress={() => setWithdrawModalVisible(false)}
+                  style={styles.closeButton}
+                >
+                  <Ionicons name="close-circle" size={28} color="#666" />
+                </Pressable>
               </View>
-              <View style={styles.divider} />
-              <View style={styles.balanceRow}>
-                <Text style={styles.balanceRowLabel}>Pending Withdrawals:</Text>
-                <Text style={[styles.balanceRowValue, { color: "#FA8232" }]}>
-                  ${(earnings.pendingWithdraw || 0).toFixed(2)}
-                </Text>
+
+              <View style={styles.balanceBreakdown}>
+                <LinearGradient
+                  colors={["#FA8232", "#FF6B35"]}
+                  style={styles.currentBalanceCard}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                >
+                  <Text style={styles.currentBalanceLabel}>Current Balance</Text>
+                  <Text style={styles.currentBalanceAmount}>
+                    ${(earnings.totalEarning || 0).toFixed(2)}
+                  </Text>
+                </LinearGradient>
+
+                <View style={styles.breakdownGrid}>
+                  <View style={styles.breakdownItem}>
+                    <Ionicons name="hourglass-outline" size={18} color="#FA8232" />
+                    <Text style={styles.breakdownLabel}>Pending</Text>
+                    <Text style={styles.breakdownValue}>
+                      ${(earnings.pendingWithdraw || 0).toFixed(2)}
+                    </Text>
+                  </View>
+                  <View style={styles.breakdownItem}>
+                    <Ionicons name="checkmark-circle-outline" size={18} color="#4CAF50" />
+                    <Text style={styles.breakdownLabel}>Withdrawn</Text>
+                    <Text style={styles.breakdownValue}>
+                      ${(earnings.withdrawn || 0).toFixed(2)}
+                    </Text>
+                  </View>
+                </View>
               </View>
-              <View style={styles.balanceRow}>
-                <Text style={styles.balanceRowLabel}>Total Withdrawn:</Text>
-                <Text style={styles.balanceRowValue}>
-                  ${(earnings.withdrawn || 0).toFixed(2)}
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>
+                  <Ionicons name="cash-outline" size={16} color="#333" /> Withdrawal Amount
                 </Text>
+                <TextInput
+                  style={styles.input}
+                  value={withdrawAmount}
+                  onChangeText={setWithdrawAmount}
+                  placeholder={`Max: $${withdrawableBalance.toFixed(2)}`}
+                  placeholderTextColor="#999"
+                  keyboardType="decimal-pad"
+                  editable={!isWithdrawing}
+                />
               </View>
-            </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Withdrawal Amount ($)</Text>
-              <TextInput
-                style={styles.input}
-                value={withdrawAmount}
-                onChangeText={setWithdrawAmount}
-                placeholder={`Max: $${withdrawableBalance.toFixed(2)}`}
-                keyboardType="decimal-pad"
-                editable={!isWithdrawing}
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Transaction Note</Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                value={withdrawNote}
-                onChangeText={setWithdrawNote}
-                placeholder="Add a note for this transaction"
-                multiline
-                numberOfLines={3}
-                textAlignVertical="top"
-                editable={!isWithdrawing}
-              />
-            </View>
-
-            <View style={styles.modalButtons}>
-              <Pressable
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => {
-                  setWithdrawModalVisible(false);
-                  setWithdrawAmount("");
-                  setWithdrawNote("");
-                }}
-                disabled={isWithdrawing}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </Pressable>
-
-              <Pressable
-                style={[
-                  styles.modalButton,
-                  styles.withdrawButton,
-                  isWithdrawing && styles.withdrawButtonDisabled,
-                ]}
-                onPress={handleWithdraw}
-                disabled={isWithdrawing}
-              >
-                <Text style={styles.withdrawButtonText}>
-                  {isWithdrawing ? "Processing..." : "Withdraw"}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>
+                  <Ionicons name="document-text-outline" size={16} color="#333" /> Transaction Note
                 </Text>
-              </Pressable>
-            </View>
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  value={withdrawNote}
+                  onChangeText={setWithdrawNote}
+                  placeholder="Add a note for this transaction"
+                  placeholderTextColor="#999"
+                  multiline
+                  numberOfLines={3}
+                  textAlignVertical="top"
+                  editable={!isWithdrawing}
+                />
+              </View>
+
+              <View style={styles.modalButtons}>
+                <Pressable
+                  style={styles.cancelButton}
+                  onPress={() => {
+                    setWithdrawModalVisible(false);
+                    setWithdrawAmount("");
+                    setWithdrawNote("");
+                  }}
+                  disabled={isWithdrawing}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </Pressable>
+
+                <Pressable
+                  style={[
+                    styles.withdrawButton,
+                    isWithdrawing && styles.withdrawButtonDisabled,
+                  ]}
+                  onPress={handleWithdraw}
+                  disabled={isWithdrawing}
+                >
+                  <LinearGradient
+                    colors={isWithdrawing ? ["#FFC09F", "#FFB088"] : ["#FA8232", "#FF6B35"]}
+                    style={styles.withdrawButtonGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  >
+                    {isWithdrawing && (
+                      <Ionicons name="hourglass-outline" size={18} color="#FFF" />
+                    )}
+                    <Text style={styles.withdrawButtonText}>
+                      {isWithdrawing ? "Processing..." : "Withdraw Now"}
+                    </Text>
+                  </LinearGradient>
+                </Pressable>
+              </View>
+            </LinearGradient>
           </Pressable>
         </Pressable>
       </Modal>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ padding: 20, paddingBottom: "30%" }}
+        contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -548,95 +812,63 @@ const HomeScreen = () => {
           />
         }
       >
-        <Text style={styles.greeting}>Hello, {displayName}</Text>
-        <Text style={styles.subtitle}>
-          Track and analyze your business performance with powerful insights
-          and statistics.
-        </Text>
+        {/* Greeting Section */}
+        <Animated.View
+          style={[
+            styles.greetingContainer,
+            { transform: [{ translateY: greetingSlideAnim }] },
+          ]}
+        >
+          <Text style={styles.greeting}>
+            Hello, <Text style={styles.greetingName}>{displayName}</Text> 👋
+          </Text>
+          <Text style={styles.subtitle}>
+            Track and analyze your business performance with powerful insights
+          </Text>
+        </Animated.View>
 
         {/* Order Status */}
-        <Text style={styles.sectionTitle}>Order Status</Text>
-        <FlatList
-          data={statusCards}
-          keyExtractor={(item) => item.id}
-          numColumns={2}
-          renderItem={({ item, index }) => (
-            <Pressable
-              onPress={() => navigateToStatusScreen(item.title)}
-              activeOpacity={0.8}
-              style={{ flex: 1 }}
-            >
-              <LinearGradient
-                colors={gradients[index % gradients.length]}
-                style={styles.statusCard}
-              >
-                <Image
-                  source={item.icon}
-                  style={{
-                    width: 30,
-                    height: 30,
-                    marginBottom: 6,
-                    resizeMode: "contain",
-                  }}
-                />
-                <Text style={styles.statusText}>{item.title}</Text>
-                <Text style={styles.statusNumber}>
-                  {orderCounts[item.title] ?? 0}
-                </Text>
-              </LinearGradient>
-            </Pressable>
-          )}
-          columnWrapperStyle={{
-            justifyContent: "space-between",
-            marginBottom: 12,
-          }}
-          scrollEnabled={false}
-        />
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="cube-outline" size={22} color="#FA8232" />
+            <Text style={styles.sectionTitle}>Order Status</Text>
+          </View>
+          <FlatList
+            data={statusCards}
+            keyExtractor={(item) => item.id}
+            numColumns={2}
+            renderItem={({ item, index }) => (
+              <AnimatedStatusCard
+                item={item}
+                index={index}
+                onPress={() => navigateToStatusScreen(item.title)}
+                count={orderCounts[item.title] ?? 0}
+              />
+            )}
+            scrollEnabled={false}
+          />
+        </View>
 
-        {/* Quick Actions */}
-        <Text style={styles.sectionTitle}>Financial Overview</Text>
-        <FlatList
-          data={quickActions}
-          keyExtractor={(item) => item.id}
-          numColumns={2}
-          renderItem={({ item, index }) => (
-            <Pressable
-              onPress={item.onPress || undefined}
-              style={{ flex: 1 }}
-              disabled={!item.onPress}
-            >
-              <LinearGradient
-                colors={gradients[index % gradients.length]}
-                style={[
-                  styles.statusCard,
-                  item.highlight && styles.highlightCard
-                ]}
-              >
-                <Image
-                  source={item.icon}
-                  style={{
-                    width: 30,
-                    height: 30,
-                    marginBottom: 6,
-                    resizeMode: "contain",
-                  }}
-                />
-                <Text style={styles.statusText}>{item.title}</Text>
-                <Text style={[
-                  styles.statusNumber,
-                  item.highlight && styles.highlightAmount
-                ]}>
-                  {item.ammount}
-                </Text>
-              </LinearGradient>
-            </Pressable>
-          )}
-          columnWrapperStyle={{
-            justifyContent: "space-between",
-            marginBottom: 12,
-          }}
-          scrollEnabled={false}
-        />
+        {/* Financial Overview */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="wallet-outline" size={22} color="#FA8232" />
+            <Text style={styles.sectionTitle}>Quick Actions</Text>
+          </View>
+          <FlatList
+            data={quickActions}
+            keyExtractor={(item) => item.id}
+            numColumns={2}
+            renderItem={({ item, index }) => (
+              <AnimatedFinancialCard
+                item={item}
+                index={index}
+                onPress={item.onPress}
+              />
+            )}
+            scrollEnabled={false}
+          />
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -645,150 +877,340 @@ const HomeScreen = () => {
 export default HomeScreen;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
-  header: {
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#FA8232",
-    paddingVertical: 10,
-    position: "relative",
+  container: {
+    flex: 1,
+    backgroundColor: "#F5F7FA",
   },
-  hamburger: { position: "absolute", left: 10, top: 45, padding: 5, zIndex: 20 },
+  header: {
+    paddingVertical: 16,
+    paddingTop: Platform.OS === "ios" ? 0 : 16,
+    alignItems: "center",
+    elevation: 8,
+    shadowColor: "#FA8232",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  hamburger: {
+    position: "absolute",
+    left: 16,
+    top: Platform.OS === "ios" ? 10 : 45,
+    padding: 8,
+    borderRadius: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    zIndex: 20,
+  },
   menuOverlay: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.3)",
-    zIndex: 10,
-    flexDirection: "row",
+    backgroundColor: "rgba(0,0,0,0.6)",
+    zIndex: 999,
   },
   menuContainer: {
-    width: 250,
+    width: 260,
     height: "100%",
     backgroundColor: "#FA8232",
-    paddingTop: 50,
+    paddingTop: 60,
     paddingHorizontal: 20,
+    elevation: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 4, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
   },
-  greeting: { fontSize: 24, fontWeight: "600", marginBottom: 8 },
-  subtitle: { fontSize: 14, color: "#666", marginBottom: 16 },
-  sectionTitle: { fontSize: 18, fontWeight: "600", marginTop: 20, marginBottom: 8 },
-  statusCard: {
-    flex: 1,
-    marginHorizontal: 3,
-    height: 100,
-    borderRadius: 10,
-    justifyContent: "center",
-    alignItems: "center",
+  scrollContent: {
+    padding: 20,
+    paddingBottom: 120,
   },
-  highlightCard: {
-    borderWidth: 2,
-    borderColor: "#FA8232",
+  greetingContainer: {
+    marginBottom: 28,
+    paddingTop: 8,
   },
-  statusNumber: {
+  greeting: {
+    fontSize: 30,
+    fontWeight: "700",
+    marginBottom: 8,
+    color: "#1A1A1A",
+    letterSpacing: -0.5,
+  },
+  greetingName: {
     color: "#FA8232",
-    fontSize: 16,
-    fontWeight: "bold",
-    marginTop: 4,
-  },
-  highlightAmount: {
-    fontSize: 18,
     fontWeight: "800",
   },
-  statusText: {
-    color: "#FA8232",
-    fontSize: 14,
-    fontWeight: "600",
-    textAlign: "center",
+  subtitle: {
+    fontSize: 15,
+    color: "#666",
+    lineHeight: 22,
+    letterSpacing: 0.2,
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  section: {
+    marginBottom: 32,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+    gap: 8,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#1A1A1A",
+    letterSpacing: -0.3,
+  },
+
+  /* Status Cards */
+  statusCard: {
+    height: 135,
+    borderRadius: 20,
+    padding: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.05)",
+  },
+  iconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     justifyContent: "center",
     alignItems: "center",
-  },
-  modalContent: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 20,
-    width: "90%",
-    maxWidth: 400,
+    marginBottom: 10,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.1,
     shadowRadius: 4,
+    elevation: 3,
+  },
+  cardIcon: {
+    width: 32,
+    height: 32,
+    resizeMode: "contain",
+  },
+  statusText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#333",
+    textAlign: "center",
+    lineHeight: 18,
+    marginBottom: 8,
+  },
+  countBadge: {
+    backgroundColor: "#FA8232",
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 20,
+    minWidth: 50,
+    alignItems: "center",
+  },
+  countText: {
+    color: "#FFF",
+    fontSize: 16,
+    fontWeight: "800",
+  },
+
+  /* Financial Cards */
+  financialCard: {
+    height: 145,
+    borderRadius: 20,
+    padding: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
     elevation: 5,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.05)",
+  },
+  highlightCard: {
+    borderWidth: 3,
+    borderColor: "#FFD700",
+    elevation: 10,
+    shadowOpacity: 0.3,
+  },
+  primaryBadge: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.3)",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  primaryBadgeText: {
+    color: "#FFF",
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  finIconCircle: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: "rgba(250, 130, 50, 0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  highlightIconCircle: {
+    backgroundColor: "rgba(255, 255, 255, 0.3)",
+  },
+  finCardIcon: {
+    width: 28,
+    height: 28,
+    resizeMode: "contain",
+  },
+  finCardTitle: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#333",
+    textAlign: "center",
+    lineHeight: 16,
+    marginBottom: 8,
+    height: 32,
+  },
+  highlightText: {
+    color: "#FFF",
+  },
+  finCardAmount: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#FA8232",
+    letterSpacing: -0.5,
+  },
+  highlightAmountText: {
+    fontSize: 22,
+    color: "#FFF",
+  },
+
+  /* Modal Styles */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  modalContent: {
+    width: "100%",
+    maxWidth: 420,
+    borderRadius: 24,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  modalGradient: {
+    padding: 24,
   },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: 24,
+  },
+  modalTitleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#333",
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#1A1A1A",
+    letterSpacing: -0.5,
+  },
+  closeButton: {
+    padding: 4,
   },
   balanceBreakdown: {
-    backgroundColor: "#F6F5F6",
+    marginBottom: 24,
+  },
+  currentBalanceCard: {
+    padding: 20,
+    borderRadius: 16,
+    alignItems: "center",
+    marginBottom: 16,
+    shadowColor: "#FA8232",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  currentBalanceLabel: {
+    fontSize: 14,
+    color: "#FFF",
+    opacity: 0.9,
+    marginBottom: 8,
+    fontWeight: "600",
+  },
+  currentBalanceAmount: {
+    fontSize: 36,
+    fontWeight: "900",
+    color: "#FFF",
+    letterSpacing: -1,
+  },
+  breakdownGrid: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  breakdownItem: {
+    flex: 1,
+    backgroundColor: "#FFF",
     padding: 16,
     borderRadius: 12,
-    marginBottom: 20,
-  },
-  balanceRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.05)",
   },
-  balanceRowLabel: {
-    fontSize: 14,
+  breakdownLabel: {
+    fontSize: 12,
     color: "#666",
+    marginTop: 6,
+    marginBottom: 4,
+    fontWeight: "500",
   },
-  balanceRowValue: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#333",
-  },
-  negativeValue: {
-    color: "#eb3b5a",
-  },
-  divider: {
-    height: 1,
-    backgroundColor: "#E0E0E0",
-    marginVertical: 12,
-  },
-  totalLabel: {
+  breakdownValue: {
     fontSize: 16,
-    fontWeight: "bold",
-    color: "#333",
-  },
-  totalValue: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#FA8232",
+    fontWeight: "700",
+    color: "#1A1A1A",
   },
   inputGroup: {
-    marginBottom: 16,
+    marginBottom: 20,
   },
   inputLabel: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "600",
     color: "#333",
-    marginBottom: 8,
+    marginBottom: 10,
+    letterSpacing: -0.2,
   },
   input: {
-    backgroundColor: "#F6F5F6",
-    borderRadius: 8,
-    padding: 12,
+    backgroundColor: "#FFF",
+    borderRadius: 12,
+    padding: 16,
     fontSize: 16,
-    borderWidth: 1,
-    borderColor: "#E0E0E0",
+    borderWidth: 2,
+    borderColor: "#E8E8E8",
+    color: "#1A1A1A",
   },
   textArea: {
-    height: 80,
+    height: 90,
     textAlignVertical: "top",
   },
   modalButtons: {
@@ -796,30 +1218,43 @@ const styles = StyleSheet.create({
     gap: 12,
     marginTop: 8,
   },
-  modalButton: {
+  cancelButton: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingVertical: 16,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-  },
-  cancelButton: {
-    backgroundColor: "#F0F0F0",
+    backgroundColor: "#E8E8E8",
   },
   cancelButtonText: {
     color: "#333",
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "700",
   },
   withdrawButton: {
-    backgroundColor: "#FA8232",
+    flex: 1.5,
+    borderRadius: 12,
+    overflow: "hidden",
+    shadowColor: "#FA8232",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  withdrawButtonGradient: {
+    paddingVertical: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
   },
   withdrawButtonDisabled: {
-    backgroundColor: "#FFC09F",
+    opacity: 0.6,
   },
   withdrawButtonText: {
-    color: "#fff",
+    color: "#FFF",
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "700",
+    letterSpacing: 0.5,
   },
 });
