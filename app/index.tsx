@@ -1,3 +1,4 @@
+import { useAuth } from "@/src/context/AuthContext";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useEffect } from "react";
@@ -5,24 +6,35 @@ import { StyleSheet, View } from "react-native";
 
 const SplashScreen = () => {
   const router = useRouter();
+  const { isAuthenticated, loading } = useAuth();
+
   useEffect(() => {
+    if (loading) return;
+
     const timer = setTimeout(() => {
-      return router.push("/getStarted"); // 👈 change to a valid route like "/" or another defined route
+      if (isAuthenticated) {
+        router.replace("/(tabs)");
+      } else {
+        router.replace("/getStarted");
+      }
     }, 400);
-  }, []);
+
+    return () => clearTimeout(timer);
+  }, [loading, isAuthenticated]);
 
   return (
     <View style={styles.container}>
       <Image
         source={require("../assets/images/splash.png")}
         style={styles.logo}
-        contentFit="contain" // 👈 proper way in expo-image
+        contentFit="contain"
       />
     </View>
   );
 };
 
 export default SplashScreen;
+
 
 const styles = StyleSheet.create({
   container: {

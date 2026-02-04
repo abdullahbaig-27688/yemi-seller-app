@@ -8,7 +8,8 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
 
-// 🧩 Import the ProductProvider
+// 🧩 Context Providers
+import { AuthProvider } from "@/src/context/AuthContext";
 import { ProductProvider } from "@/src/context/ProductContext";
 
 export const unstable_settings = {
@@ -19,24 +20,33 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
 
   return (
-    // ✅ Wrap your whole app inside ProductProvider
-    <ProductProvider>
-      <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-        <Stack
-          initialRouteName="getStarted" // ✅ Set initial route
-          screenOptions={{ headerShown: false, gestureEnabled: false }}
+    // 🔐 AuthProvider MUST be outermost
+    <AuthProvider>
+      <ProductProvider>
+        <ThemeProvider
+          value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
         >
-          <Stack.Screen name="getStarted" />
-          <Stack.Screen name="index" />
-          <Stack.Screen name="registerScreen" />
-          <Stack.Screen name="loginScreen" />
-          <Stack.Screen name="forgotPassword" />
-          <Stack.Screen name="addProduct" />
-          <Stack.Screen name="tab" />
-          {/* Add your other screens here (e.g., addProduct, inventory, etc.) */}
-        </Stack>
-        <StatusBar style="auto" />
-      </ThemeProvider>
-    </ProductProvider>
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              gestureEnabled: false,
+            }}
+          >
+            {/* Public / Auth Screens */}
+            <Stack.Screen name="getStarted" />
+            <Stack.Screen name="index" />
+            <Stack.Screen name="registerScreen" />
+            <Stack.Screen name="loginScreen" />
+            <Stack.Screen name="forgotPassword" />
+
+            {/* App Screens */}
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="addProduct" />
+          </Stack>
+
+          <StatusBar style="auto" />
+        </ThemeProvider>
+      </ProductProvider>
+    </AuthProvider>
   );
 }
