@@ -1,25 +1,117 @@
 import AddProductHeader from "@/components/Header";
 import Input from "@/components/input";
-import PrimaryButton from "@/components/primaryButton";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Picker } from "@react-native-picker/picker";
 import axios from "axios";
 import * as ImagePicker from "expo-image-picker";
+import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   Image,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Switch,
   Text,
-  View
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+/* ---------------- ANIMATED SECTION COMPONENT ---------------- */
+const AnimatedSection = ({ children, delay = 0 }) => {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 400,
+        delay,
+        useNativeDriver: true,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        friction: 8,
+        tension: 40,
+        delay,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  return (
+    <Animated.View
+      style={{
+        opacity: fadeAnim,
+        transform: [{ translateY: slideAnim }],
+      }}
+    >
+      {children}
+    </Animated.View>
+  );
+};
+
+/* ---------------- ENHANCED IMAGE MANAGER ---------------- */
+const ImageManager = ({ label, images, onImagesChange, onPickNew }) => {
+  const removeImage = (index) => {
+    Alert.alert(
+      "Remove Image",
+      "Are you sure you want to remove this image?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: () => {
+            const newImages = images.filter((_, i) => i !== index);
+            onImagesChange(newImages);
+          },
+        },
+      ]
+    );
+  };
+
+  return (
+    <View style={styles.imageManagerContainer}>
+      <View style={styles.imageManagerHeader}>
+        <Text style={styles.imageManagerLabel}>{label}</Text>
+        <Text style={styles.imageCount}>{images.length} image(s)</Text>
+      </View>
+
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.imageScroll}>
+        {images.map((img, index) => (
+          <View key={index} style={styles.imageItem}>
+            <Image source={{ uri: img.uri }} style={styles.imageThumb} />
+            <Pressable style={styles.removeButton} onPress={() => removeImage(index)}>
+              <Ionicons name="close-circle" size={24} color="#e74c3c" />
+            </Pressable>
+            {img.isExisting && (
+              <View style={styles.existingBadge}>
+                <Text style={styles.existingText}>Current</Text>
+              </View>
+            )}
+          </View>
+        ))}
+
+        <Pressable style={styles.addButton} onPress={onPickNew}>
+          <LinearGradient
+            colors={["#FA8232", "#FF6B35"]}
+            style={styles.addButtonGradient}
+          >
+            <Ionicons name="add" size={32} color="#FFF" />
+            <Text style={styles.addButtonText}>Add More</Text>
+          </LinearGradient>
+        </Pressable>
+      </ScrollView>
+    </View>
+  );
+};
 
 const EditProduct = () => {
   const { productId } = useLocalSearchParams();
@@ -47,20 +139,39 @@ const EditProduct = () => {
   const [images, setImages] = useState<any[]>([]);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-
-  // Published and status states
   const [published, setPublished] = useState("1");
   const [status, setStatus] = useState("1");
-
-  // Digital product fields
   const [author, setAuthor] = useState("");
   const [publishingHouse, setPublishingHouse] = useState("");
   const [deliveryType, setDeliveryType] = useState("");
 
-  // Debug state to show loaded data
-  const [debugInfo, setDebugInfo] = useState<string>("");
+  const headerFadeAnim = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  // ------------------ Permissions ------------------
+  useEffect(() => {
+    Animated.timing(headerFadeAnim, {
+      toValue: 1,
+      duration: 600,
+      useNativeDriver: true,
+    }).start();
+
+    // Pulse animation for update button
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.02,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
+
   useEffect(() => {
     (async () => {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -70,7 +181,6 @@ const EditProduct = () => {
     })();
   }, []);
 
-  // ------------------ Fetch Categories ------------------
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -88,7 +198,6 @@ const EditProduct = () => {
     fetchCategories();
   }, []);
 
-  // ------------------ Fetch Brands ------------------
   useEffect(() => {
     const fetchBrands = async () => {
       try {
@@ -106,7 +215,6 @@ const EditProduct = () => {
     fetchBrands();
   }, []);
 
-  // ------------------ Fetch Product Data ------------------
   useEffect(() => {
     if (!productId) {
       Alert.alert("Error", "No product ID provided");
@@ -119,16 +227,11 @@ const EditProduct = () => {
         setIsLoading(true);
         const token = await AsyncStorage.getItem("seller_token");
 
-        console.log("🔍 Fetching product ID:", productId);
-
         const res = await axios.get(
           `https://yemi.store/api/v2/seller/products/list`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
 
-        console.log("✅ Products response received");
-
-        // Extract products array from response
         let productsArray: any[] = [];
         if (Array.isArray(res.data)) {
           productsArray = res.data;
@@ -138,28 +241,20 @@ const EditProduct = () => {
           productsArray = res.data.products.data;
         }
 
-        console.log("📦 Total products:", productsArray.length);
-
-        // Find the specific product by ID
         const product = productsArray.find(
           (p: any) => p.id?.toString() === productId?.toString()
         );
 
         if (!product) {
-          console.log("❌ Product not found in list");
           Alert.alert("Error", "Product not found", [
-            { text: "OK", onPress: () => router.back() }
+            { text: "OK", onPress: () => router.back() },
           ]);
           return;
         }
 
-        console.log("✅ Found product:", product.name);
-
-        // ✅ Populate ALL fields from product data
         setName(product.name || "");
         setDescription(product.details || product.description || "");
 
-        // ✅ Handle category_ids JSON parsing
         let categoryId = "";
         if (product.category_ids) {
           try {
@@ -168,7 +263,7 @@ const EditProduct = () => {
               categoryId = categoryIdsArray[0]?.id?.toString() || "";
             }
           } catch (e) {
-            console.log("Could not parse category_ids, using category_id");
+            console.log("Could not parse category_ids");
           }
         }
         setSelectedCategory(categoryId || product.category_id?.toString() || "");
@@ -179,7 +274,9 @@ const EditProduct = () => {
         setProductType(product.product_type?.toLowerCase() || "physical");
         setCode(product.code || "");
         setUnitPrice(product.unit_price?.toString() || "");
-        setMinimumOrderQty(product.minimum_order_qty?.toString() || product.min_qty?.toString() || "1");
+        setMinimumOrderQty(
+          product.minimum_order_qty?.toString() || product.min_qty?.toString() || "1"
+        );
         setCurrentStock(product.current_stock?.toString() || "0");
         setDiscountType(product.discount_type || "flat");
         setDiscount(product.discount?.toString() || "0");
@@ -188,28 +285,23 @@ const EditProduct = () => {
         setShippingCost(product.shipping_cost?.toString() || "0");
         setPurchasePrice(product.purchase_price?.toString() || "");
         setUnit(product.unit || "pc");
-
-        // ✅ Set published and status from existing product
         setPublished(product.published?.toString() || "1");
         setStatus(product.status?.toString() || "1");
-
-        // Digital product fields
         setAuthor(product.author || "");
         setPublishingHouse(product.publishing_house || "");
         setDeliveryType(product.delivery_type || "");
 
-        // ✅ THUMBNAIL - Load existing thumbnail
+        // Load thumbnail
         let thumbnailData = null;
         if (product.thumbnail_full_url?.path) {
           thumbnailData = {
             uri: product.thumbnail_full_url.path,
             name: "thumbnail.jpg",
             type: "image/jpeg",
-            isExisting: true
+            isExisting: true,
           };
-          console.log("📸 Loaded thumbnail:", product.thumbnail_full_url.path);
         } else if (product.thumbnail) {
-          const thumbnailUri = product.thumbnail.startsWith('http')
+          const thumbnailUri = product.thumbnail.startsWith("http")
             ? product.thumbnail
             : `https://yemi.store/storage/app/public/product/thumbnail/${product.thumbnail}`;
 
@@ -217,16 +309,14 @@ const EditProduct = () => {
             uri: thumbnailUri,
             name: "thumbnail.jpg",
             type: "image/jpeg",
-            isExisting: true
+            isExisting: true,
           };
-          console.log("📸 Loaded thumbnail:", thumbnailUri);
         }
         setThumbnail(thumbnailData);
 
-        // ✅ IMAGES - Load existing images with proper parsing
+        // Load images
         let loadedImages: any[] = [];
 
-        // Try images_full_url first (best option)
         if (Array.isArray(product.images_full_url) && product.images_full_url.length > 0) {
           loadedImages = product.images_full_url
             .filter((img: any) => img?.path && img?.status === 200)
@@ -234,47 +324,38 @@ const EditProduct = () => {
               uri: img.path,
               name: `image_${i}.jpg`,
               type: "image/jpeg",
-              isExisting: true
+              isExisting: true,
             }));
-          console.log("📸 Loaded", loadedImages.length, "images from images_full_url");
-        }
-        // Try parsing images JSON string
-        else if (product.images) {
+        } else if (product.images) {
           try {
             let imagesArray: any[] = [];
 
-            // Parse if it's a string
-            if (typeof product.images === 'string') {
+            if (typeof product.images === "string") {
               imagesArray = JSON.parse(product.images);
             } else if (Array.isArray(product.images)) {
               imagesArray = product.images;
             }
 
-            // Handle different formats
             loadedImages = imagesArray
               .filter((img: any) => {
-                // Handle object format: {image_name: "...", storage: "..."}
-                if (typeof img === 'object' && img.image_name) {
+                if (typeof img === "object" && img.image_name) {
                   return true;
                 }
-                // Handle string format
-                if (typeof img === 'string' && img.trim() !== '') {
+                if (typeof img === "string" && img.trim() !== "") {
                   return true;
                 }
                 return false;
               })
               .map((img: any, i: number) => {
-                let imagePath = '';
+                let imagePath = "";
 
-                // Extract image name from object or string
-                if (typeof img === 'object' && img.image_name) {
+                if (typeof img === "object" && img.image_name) {
                   imagePath = img.image_name;
-                } else if (typeof img === 'string') {
+                } else if (typeof img === "string") {
                   imagePath = img;
                 }
 
-                // Build full URL
-                const imageUri = imagePath.startsWith('http')
+                const imageUri = imagePath.startsWith("http")
                   ? imagePath
                   : `https://yemi.store/storage/app/public/product/${imagePath.trim()}`;
 
@@ -282,35 +363,19 @@ const EditProduct = () => {
                   uri: imageUri,
                   name: `image_${i}.jpg`,
                   type: "image/jpeg",
-                  isExisting: true
+                  isExisting: true,
                 };
               });
-            console.log("📸 Loaded", loadedImages.length, "images from images field");
           } catch (e) {
             console.log("❌ Error parsing images:", e);
           }
         }
 
         setImages(loadedImages);
-
-        // Set debug info for UI display
-        const debugText = `
-Product: ${product.name}
-Thumbnail: ${thumbnailData ? '✅ Loaded' : '❌ Not found'}
-Images: ${loadedImages.length} loaded
-Published: ${product.published}
-Status: ${product.status}
-        `.trim();
-        setDebugInfo(debugText);
-
-        console.log("✅ Product data loaded successfully");
-        console.log("📊 Thumbnail state:", thumbnailData);
-        console.log("📊 Images state:", loadedImages);
-
       } catch (err: any) {
         console.error("❌ Error fetching product:", err.response?.data || err.message);
         Alert.alert("Error", "Failed to fetch product data.", [
-          { text: "OK", onPress: () => router.back() }
+          { text: "OK", onPress: () => router.back() },
         ]);
       } finally {
         setIsLoading(false);
@@ -320,7 +385,6 @@ Status: ${product.status}
     fetchProduct();
   }, [productId]);
 
-  // ------------------ Image Picker Handler ------------------
   const handlePickThumbnail = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -334,7 +398,7 @@ Status: ${product.status}
         uri: result.assets[0].uri,
         name: "thumbnail.jpg",
         type: "image/jpeg",
-        isExisting: false
+        isExisting: false,
       });
     }
   };
@@ -351,21 +415,15 @@ Status: ${product.status}
         uri: asset.uri,
         name: `image_${i}.jpg`,
         type: "image/jpeg",
-        isExisting: false
+        isExisting: false,
       }));
       setImages([...images, ...newImages]);
     }
   };
 
-  const handleRemoveImage = (index: number) => {
-    setImages(images.filter((_, i) => i !== index));
-  };
-
-  // ------------------ Update Product Handler ------------------
   const handleUpdateProduct = async () => {
     if (!productId) return;
 
-    // Validation
     if (!name.trim()) {
       Alert.alert("Validation Error", "Product name is required");
       return;
@@ -394,14 +452,9 @@ Status: ${product.status}
 
       const formData = new FormData();
 
-      // CRITICAL FOR LARAVEL: Add _method field to simulate PUT
       formData.append("_method", "PUT");
-
-      // Add published and status
       formData.append("published", published);
       formData.append("status", status);
-
-      // Basic product info
       formData.append("name", name.trim());
       formData.append("description", description.trim());
       formData.append("category_id", selectedCategory.toString());
@@ -425,16 +478,13 @@ Status: ${product.status}
         formData.append("tax_calculation", taxCalculation);
       }
 
-      // Digital product fields
       if (productType.toLowerCase() === "digital") {
         if (author) formData.append("author", author.trim());
         if (publishingHouse) formData.append("publishing_house", publishingHouse.trim());
         if (deliveryType) formData.append("delivery_type", deliveryType);
       }
 
-      // Thumbnail - only if it's NEW
       if (thumbnail?.uri && !thumbnail.isExisting) {
-        console.log("📎 Adding NEW thumbnail");
         formData.append("thumbnail", {
           uri: thumbnail.uri,
           type: thumbnail.type || "image/jpeg",
@@ -442,9 +492,7 @@ Status: ${product.status}
         } as any);
       }
 
-      // Images - only NEW files
-      const newImages = images.filter(img => !img.isExisting);
-      console.log("📎 Adding", newImages.length, "new images");
+      const newImages = images.filter((img) => !img.isExisting);
       newImages.forEach((img, i) => {
         formData.append("images[]", {
           uri: img.uri,
@@ -460,32 +508,25 @@ Status: ${product.status}
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "multipart/form-data",
-            "Accept": "application/json"
+            Accept: "application/json",
           },
         }
       );
 
-      console.log("✅ Update successful:", res.data);
-
-      Alert.alert(
-        "Success",
-        "Product updated successfully!",
-        [
-          {
-            text: "OK",
-            onPress: () => {
-              router.replace({
-                pathname: "/myProducts",
-                params: {
-                  refresh: Date.now().toString(),
-                  resetFilters: "true"
-                }
-              });
-            }
-          }
-        ]
-      );
-
+      Alert.alert("Success", "Product updated successfully!", [
+        {
+          text: "OK",
+          onPress: () => {
+            router.replace({
+              pathname: "/myProducts",
+              params: {
+                refresh: Date.now().toString(),
+                resetFilters: "true",
+              },
+            });
+          },
+        },
+      ]);
     } catch (err: any) {
       console.log("❌ Update error:", err.response?.data || err.message);
       Alert.alert("Error", "Failed to update product. Please try again.");
@@ -494,15 +535,19 @@ Status: ${product.status}
     }
   };
 
-  // Show loading state
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container}>
-        <AddProductHeader
-          title="Edit Product"
-          leftIcon="arrow-back"
-          onLeftPress={() => router.back()}
-        />
+        <LinearGradient
+          colors={["#FA8232", "#FF6B35"]}
+          style={styles.header}
+        >
+          <AddProductHeader
+            title="Edit Product"
+            leftIcon="arrow-back"
+            onLeftPress={() => router.back()}
+          />
+        </LinearGradient>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#FA8232" />
           <Text style={styles.loadingText}>Loading product data...</Text>
@@ -513,254 +558,170 @@ Status: ${product.status}
 
   return (
     <SafeAreaView style={styles.container}>
-      <AddProductHeader
-        title="Edit Product"
-        leftIcon="arrow-back"
-        onLeftPress={() => router.back()}
-      />
+      <Animated.View style={{ opacity: headerFadeAnim }}>
+        <LinearGradient
+          colors={["#FA8232", "#FF6B35"]}
+          style={styles.header}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+        >
+          <AddProductHeader
+            title="Edit Product"
+            leftIcon="arrow-back"
+            onLeftPress={() => router.back()}
+          />
+        </LinearGradient>
+      </Animated.View>
 
       <ScrollView
         style={styles.content}
-        contentContainerStyle={{ paddingBottom: 80 }}
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Debug Info */}
-        {/* {debugInfo && (
-          <View style={styles.debugBox}>
-            <Text style={styles.debugText}>{debugInfo}</Text>
+        {/* Product Images */}
+        <AnimatedSection delay={0}>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="images" size={24} color="#FA8232" />
+            <Text style={styles.sectionTitle}>Product Images</Text>
           </View>
-        )} */}
-
-        <Text style={styles.info}>Product Information</Text>
-        <View style={styles.information}>
-          {/* Thumbnail Section */}
-          <View style={styles.imageSection}>
-            <Text style={styles.inputLabel}>Product Thumbnail</Text>
-            {thumbnail?.uri ? (
-              <View style={styles.thumbnailPreview}>
-                <Image source={{ uri: thumbnail.uri }} style={styles.thumbnailImage} />
-                <Pressable
-                  style={styles.removeButton}
-                  onPress={() => setThumbnail(null)}
-                >
-                  <Ionicons name="close-circle" size={24} color="#eb3b5a" />
-                </Pressable>
-              </View>
-            ) : (
-              <Pressable style={styles.uploadBox} onPress={handlePickThumbnail}>
-                <Ionicons name="camera-outline" size={40} color="#FA8232" />
-                <Text style={styles.uploadText}>Tap to upload thumbnail</Text>
-              </Pressable>
-            )}
-          </View>
-
-          {/* Images Section */}
-          <View style={styles.imageSection}>
-            <Text style={styles.inputLabel}>Product Images ({images.length})</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {images.map((img, index) => (
-                <View key={index} style={styles.imagePreview}>
-                  <Image source={{ uri: img.uri }} style={styles.productImage} />
+          <LinearGradient colors={["#FFFFFF", "#F8F9FA"]} style={styles.card}>
+            {/* Thumbnail */}
+            <View style={styles.thumbnailSection}>
+              <Text style={styles.inputLabel}>Thumbnail</Text>
+              {thumbnail?.uri ? (
+                <View style={styles.thumbnailContainer}>
+                  <Image source={{ uri: thumbnail.uri }} style={styles.thumbnailImage} />
                   <Pressable
-                    style={styles.removeImageButton}
-                    onPress={() => handleRemoveImage(index)}
+                    style={styles.changeThumbnailButton}
+                    onPress={handlePickThumbnail}
                   >
-                    <Ionicons name="close-circle" size={20} color="#eb3b5a" />
+                    <Ionicons name="camera" size={20} color="#FA8232" />
+                    <Text style={styles.changeThumbnailText}>Change</Text>
                   </Pressable>
-                  {img.isExisting && (
-                    <View style={styles.existingBadge}>
-                      <Text style={styles.existingText}>Existing</Text>
-                    </View>
-                  )}
                 </View>
-              ))}
-              <Pressable style={styles.addImageBox} onPress={handlePickImages}>
-                <Ionicons name="add-circle-outline" size={40} color="#FA8232" />
-                <Text style={styles.uploadText}>Add More</Text>
-              </Pressable>
-            </ScrollView>
-          </View>
-
-          <Input
-            label="Product Name"
-            value={name}
-            onChangeText={setName}
-            required
-          />
-          <Input
-            label="Description"
-            value={description}
-            onChangeText={setDescription}
-            multiline
-            inputStyle={{ textAlignVertical: "top", height: 120 }}
-          />
-        </View>
-
-        {/* Category & Brand */}
-        <Text style={styles.info}>General Setup</Text>
-        <View style={styles.setup}>
-          <Text style={styles.inputLabel}>
-            Select Category <Text style={styles.requiredStar}>*</Text>
-          </Text>
-          <View style={styles.inputForm}>
-            <Picker
-              selectedValue={selectedCategory}
-              onValueChange={(value) => {
-                setSelectedCategory(value.toString());
-                setSubCategoryId("");
-                setSubSubCategoryId("");
-              }}
-            >
-              <Picker.Item label="Select Category" value="" />
-              {categories.map((cat) => (
-                <Picker.Item
-                  key={cat.id}
-                  label={cat.name}
-                  value={cat.id.toString()}
-                />
-              ))}
-            </Picker>
-          </View>
-
-          <Text style={styles.inputLabel}>Brand</Text>
-          <View style={styles.inputForm}>
-            <Picker
-              selectedValue={brandId}
-              onValueChange={(value) => setBrandId(value.toString())}
-            >
-              <Picker.Item label="Select Brand" value="" />
-              {brands.map((b) => (
-                <Picker.Item
-                  key={b.id}
-                  label={b.name}
-                  value={b.id.toString()}
-                />
-              ))}
-            </Picker>
-          </View>
-
-          <Text style={styles.inputLabel}>
-            Product Type <Text style={styles.requiredStar}>*</Text>
-          </Text>
-          <View style={styles.inputForm}>
-            <Picker
-              selectedValue={productType}
-              onValueChange={(value) => setProductType(value)}
-            >
-              <Picker.Item label="Physical" value="physical" />
-              <Picker.Item label="Digital" value="digital" />
-            </Picker>
-          </View>
-
-          <Input
-            label="Product SKU"
-            value={code}
-            onChangeText={setCode}
-            required={true}
-          />
-          <Input
-            label="Unit"
-            value={unit}
-            onChangeText={setUnit}
-            required={true}
-            placeholder="e.g., pc, kg, liter, box"
-          />
-        </View>
-
-        {/* Pricing & Inventory */}
-        <Text style={styles.price}>Pricing & Inventory</Text>
-        <View style={styles.information}>
-          <Input
-            label="Unit Price ($)"
-            value={unitPrice}
-            onChangeText={setUnitPrice}
-            required={true}
-            keyboardType="numeric"
-          />
-          <Input
-            label="Minimum Order Qty"
-            value={minimumOrderQty}
-            onChangeText={setMinimumOrderQty}
-            required={true}
-            keyboardType="numeric"
-          />
-          <Input
-            label="Current Stock Qty"
-            value={currentStock}
-            onChangeText={setCurrentStock}
-            required={true}
-            keyboardType="numeric"
-          />
-
-          <Text style={styles.inputLabel}>Discount Type</Text>
-          <View style={styles.inputForm}>
-            <Picker
-              selectedValue={discountType}
-              onValueChange={(itemValue) => setDiscountType(itemValue)}
-            >
-              <Picker.Item label="Flat" value="flat" />
-              <Picker.Item label="Percentage" value="percentage" />
-            </Picker>
-          </View>
-
-          <Input
-            label="Discount Amount ($)"
-            value={discount}
-            onChangeText={setDiscount}
-            keyboardType="numeric"
-          />
-          <Input
-            label="Tax Amount (%)"
-            value={tax}
-            onChangeText={setTax}
-            required={true}
-            keyboardType="numeric"
-          />
-          <Input
-            label="Purchase Price ($)"
-            value={purchasePrice}
-            onChangeText={setPurchasePrice}
-            required={true}
-            keyboardType="numeric"
-          />
-          <Input
-            label="Shipping Cost ($)"
-            value={shippingCost}
-            onChangeText={setShippingCost}
-            required={true}
-            keyboardType="numeric"
-          />
-        </View>
-
-        {/* Product Status */}
-        <Text style={styles.info}>Product Status</Text>
-        <View style={styles.information}>
-          <View style={styles.switchContainer}>
-            <View style={styles.switchLabelContainer}>
-              <Text style={styles.switchLabel}>Publish Product</Text>
-              <Text style={styles.switchDescription}>
-                {published === "1"
-                  ? "Product is live and visible to customers"
-                  : "Product is in draft mode and not visible"}
-              </Text>
+              ) : (
+                <Pressable style={styles.uploadButton} onPress={handlePickThumbnail}>
+                  <Ionicons name="camera-outline" size={40} color="#FA8232" />
+                  <Text style={styles.uploadText}>Upload Thumbnail</Text>
+                </Pressable>
+              )}
             </View>
-            <Switch
-              value={published === "1"}
-              onValueChange={(value) => setPublished(value ? "1" : "0")}
-              trackColor={{ false: "#ccc", true: "#FA8232" }}
-              thumbColor={published === "1" ? "#fff" : "#f4f3f4"}
-            />
-          </View>
-        </View>
 
-        <View style={styles.buttonRow}>
-          <PrimaryButton
-            title={isUpdating ? "Updating..." : "Update Product"}
-            onPress={handleUpdateProduct}
-            variant="primary"
-            disabled={isUpdating}
-          />
-        </View>
+            {/* Product Images */}
+            <ImageManager
+              label="Product Images"
+              images={images}
+              onImagesChange={setImages}
+              onPickNew={handlePickImages}
+            />
+          </LinearGradient>
+        </AnimatedSection>
+
+        {/* Basic Information */}
+        <AnimatedSection delay={100}>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="information-circle" size={24} color="#FA8232" />
+            <Text style={styles.sectionTitle}>Basic Information</Text>
+          </View>
+          <LinearGradient colors={["#FFFFFF", "#F8F9FA"]} style={styles.card}>
+            <Input label="Product Name" value={name} onChangeText={setName} required />
+            <Input
+              label="Description"
+              value={description}
+              onChangeText={setDescription}
+              multiline
+              inputStyle={{ textAlignVertical: "top", height: 120 }}
+            />
+            <Input label="Product SKU" value={code} onChangeText={setCode} required />
+            <Input label="Unit" value={unit} onChangeText={setUnit} required />
+          </LinearGradient>
+        </AnimatedSection>
+
+        {/* Pricing */}
+        <AnimatedSection delay={200}>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="cash" size={24} color="#FA8232" />
+            <Text style={styles.sectionTitle}>Pricing & Stock</Text>
+          </View>
+          <LinearGradient colors={["#FFFFFF", "#F8F9FA"]} style={styles.card}>
+            <Input
+              label="Unit Price ($)"
+              value={unitPrice}
+              onChangeText={setUnitPrice}
+              keyboardType="numeric"
+              required
+            />
+            <Input
+              label="Current Stock"
+              value={currentStock}
+              onChangeText={setCurrentStock}
+              keyboardType="numeric"
+              required
+            />
+            <Input
+              label="Minimum Order Qty"
+              value={minimumOrderQty}
+              onChangeText={setMinimumOrderQty}
+              keyboardType="numeric"
+              required
+            />
+          </LinearGradient>
+        </AnimatedSection>
+
+        {/* Status */}
+        <AnimatedSection delay={300}>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="toggle" size={24} color="#FA8232" />
+            <Text style={styles.sectionTitle}>Product Status</Text>
+          </View>
+          <LinearGradient colors={["#FFFFFF", "#F8F9FA"]} style={styles.card}>
+            <View style={styles.switchContainer}>
+              <View style={styles.switchInfo}>
+                <Text style={styles.switchLabel}>Publish Product</Text>
+                <Text style={styles.switchDescription}>
+                  {published === "1"
+                    ? "Product is live and visible"
+                    : "Product is hidden from customers"}
+                </Text>
+              </View>
+              <Switch
+                value={published === "1"}
+                onValueChange={(value) => setPublished(value ? "1" : "0")}
+                trackColor={{ false: "#ccc", true: "#FA8232" }}
+                thumbColor={published === "1" ? "#fff" : "#f4f3f4"}
+              />
+            </View>
+          </LinearGradient>
+        </AnimatedSection>
+
+        {/* Update Button */}
+        <AnimatedSection delay={400}>
+          <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+            <Pressable
+              style={styles.updateButton}
+              onPress={handleUpdateProduct}
+              disabled={isUpdating}
+            >
+              <LinearGradient
+                colors={
+                  isUpdating ? ["#FFC09F", "#FFB088"] : ["#FA8232", "#FF6B35"]
+                }
+                style={styles.updateButtonGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                {isUpdating ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <Ionicons name="checkmark-circle" size={24} color="#FFF" />
+                )}
+                <Text style={styles.updateButtonText}>
+                  {isUpdating ? "Updating..." : "Update Product"}
+                </Text>
+              </LinearGradient>
+            </Pressable>
+          </Animated.View>
+        </AnimatedSection>
       </ScrollView>
     </SafeAreaView>
   );
@@ -769,62 +730,25 @@ Status: ${product.status}
 export default EditProduct;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
-  content: { padding: 20 },
-  information: {
-    backgroundColor: "#fff",
-    borderWidth: 1,
-    borderColor: "gray",
-    borderRadius: 10,
-    padding: 10,
-    shadowColor: "#000",
+  container: {
+    flex: 1,
+    backgroundColor: "#F5F7FA",
+  },
+  header: {
+    paddingVertical: 16,
+    paddingTop: Platform.OS === "ios" ? 0 : 16,
+    elevation: 8,
+    shadowColor: "#FA8232",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 4,
+    shadowRadius: 8,
   },
-  setup: {
-    backgroundColor: "#fff",
-    borderWidth: 1,
-    borderColor: "gray",
-    borderRadius: 10,
-    padding: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 4,
+  content: {
+    flex: 1,
   },
-  info: {
-    fontSize: 24,
-    color: "#FA8232",
-    fontWeight: "500",
-    marginBottom: 16,
-    marginTop: 16
-  },
-  price: {
-    fontSize: 24,
-    color: "#FA8232",
-    fontWeight: "500",
-    marginBottom: 16,
-    marginTop: 16
-  },
-  inputLabel: { marginBottom: 15, fontSize: 15, fontWeight: "600" },
-  inputForm: {
-    borderWidth: 1,
-    borderColor: "grey",
-    borderRadius: 10,
-    marginVertical: 5,
-    backgroundColor: "#FFF",
-    overflow: "hidden",
-  },
-  requiredStar: { color: "red" },
-  buttonRow: {
-    flexDirection: "row",
-    gap: 10,
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 20,
+  scrollContent: {
+    padding: 20,
+    paddingBottom: 100,
   },
   loadingContainer: {
     flex: 1,
@@ -832,117 +756,219 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   loadingText: {
-    marginTop: 10,
+    marginTop: 16,
     fontSize: 16,
-    color: "#888",
+    color: "#666",
+    fontWeight: "600",
   },
-  switchContainer: {
+
+  /* Section */
+  sectionHeader: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 10,
+    gap: 10,
+    marginBottom: 16,
+    marginTop: 8,
   },
-  switchLabelContainer: {
-    flex: 1,
-    marginRight: 10,
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#1A1A1A",
+    letterSpacing: -0.3,
   },
-  switchLabel: {
-    fontSize: 16,
+  card: {
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.05)",
+  },
+
+  /* Thumbnail */
+  thumbnailSection: {
+    marginBottom: 24,
+  },
+  inputLabel: {
+    fontSize: 15,
     fontWeight: "600",
     color: "#333",
-    marginBottom: 4,
+    marginBottom: 12,
   },
-  switchDescription: {
-    fontSize: 13,
-    color: "#666",
-  },
-  debugBox: {
-    backgroundColor: "#f0f0f0",
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 16,
-  },
-  debugText: {
-    fontSize: 12,
-    color: "#333",
-    fontFamily: "monospace",
-  },
-  imageSection: {
-    marginBottom: 20,
-  },
-  thumbnailPreview: {
+  thumbnailContainer: {
     position: "relative",
     alignSelf: "flex-start",
   },
   thumbnailImage: {
     width: 150,
     height: 150,
-    borderRadius: 10,
-    backgroundColor: "#f0f0f0",
+    borderRadius: 16,
+    backgroundColor: "#F0F0F0",
   },
-  removeButton: {
+  changeThumbnailButton: {
     position: "absolute",
-    top: -8,
-    right: -8,
-    backgroundColor: "#fff",
-    borderRadius: 12,
+    bottom: 10,
+    right: 10,
+    backgroundColor: "#FFF",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
-  uploadBox: {
+  changeThumbnailText: {
+    color: "#FA8232",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  uploadButton: {
     width: 150,
     height: 150,
     borderWidth: 2,
     borderColor: "#FA8232",
     borderStyle: "dashed",
-    borderRadius: 10,
+    borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#fff5f0",
+    backgroundColor: "#FFF5F0",
   },
   uploadText: {
     marginTop: 8,
-    fontSize: 12,
-    color: "#666",
+    fontSize: 13,
+    color: "#FA8232",
+    fontWeight: "600",
   },
-  imagePreview: {
+
+  /* Image Manager */
+  imageManagerContainer: {
+    marginBottom: 20,
+  },
+  imageManagerHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  imageManagerLabel: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#333",
+  },
+  imageCount: {
+    fontSize: 13,
+    color: "#FA8232",
+    fontWeight: "600",
+  },
+  imageScroll: {
+    marginBottom: 10,
+  },
+  imageItem: {
     position: "relative",
-    marginRight: 10,
+    marginRight: 12,
   },
-  productImage: {
+  imageThumb: {
     width: 100,
     height: 100,
-    borderRadius: 8,
-    backgroundColor: "#f0f0f0",
+    borderRadius: 12,
+    backgroundColor: "#F0F0F0",
   },
-  removeImageButton: {
+  removeButton: {
     position: "absolute",
-    top: -6,
-    right: -6,
-    backgroundColor: "#fff",
-    borderRadius: 10,
+    top: -8,
+    right: -8,
+    backgroundColor: "#FFF",
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   existingBadge: {
     position: "absolute",
-    bottom: 4,
-    left: 4,
-    backgroundColor: "#2dce89",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
+    bottom: 6,
+    left: 6,
+    backgroundColor: "#27ae60",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
   existingText: {
-    color: "#fff",
+    color: "#FFF",
     fontSize: 10,
-    fontWeight: "600",
+    fontWeight: "700",
   },
-  addImageBox: {
+  addButton: {
     width: 100,
     height: 100,
-    borderWidth: 2,
-    borderColor: "#FA8232",
-    borderStyle: "dashed",
-    borderRadius: 8,
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  addButtonGradient: {
+    flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#fff5f0",
+    gap: 6,
+  },
+  addButtonText: {
+    color: "#FFF",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+
+  /* Switch */
+  switchContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 8,
+  },
+  switchInfo: {
+    flex: 1,
+    marginRight: 16,
+  },
+  switchLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1A1A1A",
+    marginBottom: 4,
+  },
+  switchDescription: {
+    fontSize: 13,
+    color: "#666",
+  },
+
+  /* Update Button */
+  updateButton: {
+    borderRadius: 16,
+    overflow: "hidden",
+    shadowColor: "#FA8232",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  updateButtonGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 18,
+    gap: 10,
+  },
+  updateButtonText: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#FFF",
+    letterSpacing: 0.5,
   },
 });

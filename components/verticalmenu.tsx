@@ -331,8 +331,8 @@ const styles = StyleSheet.create({
     // width: 280,
   },
   scrollContent: {
-    paddingTop: 60,
-    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingHorizontal: 10,
     paddingBottom: 40,
   },
 
@@ -479,8 +479,8 @@ const styles = StyleSheet.create({
 
   /* Footer */
   footer: {
-    marginTop: 32,
-    paddingTop: 20,
+    marginVertical: 28,
+    paddingVertical: 20,
     borderTopWidth: 1,
     borderTopColor: "rgba(255, 255, 255, 0.2)",
     alignItems: "center",

@@ -1,13 +1,17 @@
 import ProductsHeader from "@/components/Header";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Animated,
+  Dimensions,
   FlatList,
   Image,
+  Platform,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -17,6 +21,146 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+
+/* ---------------- ANIMATED PRODUCT CARD ---------------- */
+const AnimatedProductCard = ({ item, index, onPress, onEdit, onDelete }) => {
+  const scaleAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        friction: 8,
+        tension: 40,
+        delay: index * 50,
+        useNativeDriver: true,
+      }),
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 400,
+        delay: index * 50,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.97,
+      friction: 3,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      friction: 3,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const getStatusConfig = () => {
+    if (item.published === 0 || item.status === 0) {
+      return { label: "Draft", color: "#95a5a6", icon: "document-text-outline" };
+    }
+    if (item.current_stock === 0) {
+      return { label: "Out of Stock", color: "#e74c3c", icon: "alert-circle-outline" };
+    }
+    if (item.current_stock < item.min_qty) {
+      return { label: "Low Stock", color: "#f39c12", icon: "warning-outline" };
+    }
+    return { label: "Active", color: "#27ae60", icon: "checkmark-circle-outline" };
+  };
+
+  const statusConfig = getStatusConfig();
+
+  return (
+    <Animated.View
+      style={[
+        styles.cardWrapper,
+        {
+          opacity: fadeAnim,
+          transform: [{ scale: scaleAnim }],
+        },
+      ]}
+    >
+      <Pressable
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+      >
+        <LinearGradient
+          colors={["#FFFFFF", "#F8F9FA"]}
+          style={styles.card}
+        >
+          <View style={styles.cardContent}>
+            <Image
+              source={item.imageSource}
+              style={styles.productImage}
+              defaultSource={require("@/assets/images/icon.png")}
+            />
+            <View style={styles.productInfo}>
+              <Text style={styles.productName} numberOfLines={2}>
+                {item.name}
+              </Text>
+              <View style={styles.skuContainer}>
+                <Ionicons name="barcode-outline" size={14} color="#666" />
+                <Text style={styles.productSKU}>SKU: {item.code}</Text>
+              </View>
+              <View style={styles.priceRow}>
+                <Text style={styles.productPrice}>${item.unit_price}</Text>
+                <View style={styles.stockBadge}>
+                  <Ionicons name="cube-outline" size={12} color="#666" />
+                  <Text style={styles.productStock}>{item.current_stock}</Text>
+                </View>
+              </View>
+              <View style={[styles.statusBadge, { backgroundColor: statusConfig.color }]}>
+                <Ionicons name={statusConfig.icon} size={12} color="#FFF" />
+                <Text style={styles.statusText}>{statusConfig.label}</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.actionButtons}>
+            <Pressable
+              onPress={(e) => {
+                e.stopPropagation();
+                onEdit();
+              }}
+              style={styles.editButton}
+            >
+              <LinearGradient
+                colors={["#3498db", "#2980b9"]}
+                style={styles.actionButtonGradient}
+              >
+                <Ionicons name="pencil" size={18} color="#fff" />
+              </LinearGradient>
+            </Pressable>
+
+            <Pressable
+              onPress={(e) => {
+                e.stopPropagation();
+                onDelete();
+              }}
+              style={styles.deleteButton}
+            >
+              <LinearGradient
+                colors={["#e74c3c", "#c0392b"]}
+                style={styles.actionButtonGradient}
+              >
+                <Ionicons name="trash" size={18} color="#fff" />
+              </LinearGradient>
+            </Pressable>
+          </View>
+        </LinearGradient>
+      </Pressable>
+    </Animated.View>
+  );
+};
+
 const MyProducts = () => {
   const [products, setProducts] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -25,6 +169,26 @@ const MyProducts = () => {
   const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
   const params = useLocalSearchParams();
+
+  const headerFadeAnim = useRef(new Animated.Value(0)).current;
+  const searchSlideAnim = useRef(new Animated.Value(-50)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(headerFadeAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.spring(searchSlideAnim, {
+        toValue: 0,
+        friction: 8,
+        tension: 40,
+        delay: 200,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
 
   const refreshParam = params.refresh;
   const resetFiltersParam = params.resetFilters;
@@ -44,39 +208,29 @@ const MyProducts = () => {
         return;
       }
 
-      console.log("=".repeat(60));
-      console.log("🔄 Fetching products from API with filters...");
-
       const params = new URLSearchParams();
 
-      // ✅ Only add search if it exists and is not empty
       if (searchQuery && searchQuery.trim()) {
         params.append("search", searchQuery.trim());
       }
 
-      // ✅ Only add filters if NOT "All"
       if (filter && filter !== "All") {
         if (filter === "Active") {
           params.append("status", "1");
-          params.append("published", "1"); // ✅ Active products must be published
+          params.append("published", "1");
         }
         if (filter === "Draft") {
-          params.append("published", "0"); // ✅ Draft means unpublished
+          params.append("published", "0");
         }
         if (filter === "Out of Stock") {
           params.append("stock", "0");
         }
       }
 
-      // ✅ Build URL - if no params, just use base URL
       const queryString = params.toString();
       const url = queryString
         ? `https://yemi.store/api/v2/seller/products/list?${queryString}`
         : `https://yemi.store/api/v2/seller/products/list`;
-
-      console.log("📡 Fetch URL:", url);
-      console.log("🔍 Current filter:", filter);
-      console.log("🔍 Search query:", searchQuery);
 
       const res = await fetch(url, {
         method: "GET",
@@ -86,19 +240,13 @@ const MyProducts = () => {
         },
       });
 
-      console.log("📊 Response Status:", res.status);
-      console.log("📊 Response OK:", res.ok);
-
       if (!res.ok) {
         try {
           const errData = await res.json();
-          console.log("❌ Fetch failed:", JSON.stringify(errData));
-
-          // ✅ Check if it's a backend error with corrupted product data
           if (res.status === 500 && errData.message?.includes("could not be converted to string")) {
             Alert.alert(
               "Database Error",
-              "Some products have corrupted data. Please contact support or try deleting and re-adding affected products.",
+              "Some products have corrupted data. Please contact support.",
               [{ text: "OK" }]
             );
           } else {
@@ -114,38 +262,19 @@ const MyProducts = () => {
 
       const data = await res.json();
 
-      // ✅ Log response structure
-      console.log("📦 Raw Response Type:", typeof data);
-      console.log("📦 Is Array:", Array.isArray(data));
-      if (data.products) {
-        console.log("📦 data.products exists, type:", typeof data.products);
-      }
-
       let productsArray: any[] = [];
       if (Array.isArray(data)) productsArray = data;
       else if (Array.isArray(data.products)) productsArray = data.products;
-      else if (Array.isArray(data.products?.data))
-        productsArray = data.products.data;
+      else if (Array.isArray(data.products?.data)) productsArray = data.products.data;
 
-      console.log("✅ Products fetched:", productsArray.length);
+      // Process products to add image sources
+      const processedProducts = productsArray.map(product => ({
+        ...product,
+        imageSource: getProductImage(product)
+      }));
 
-      // Log first product details if exists
-      if (productsArray.length > 0) {
-        console.log("📦 Sample product:", {
-          id: productsArray[0].id,
-          name: productsArray[0].name,
-          status: productsArray[0].status,
-          published: productsArray[0].published,
-          current_stock: productsArray[0].current_stock,
-        });
-      } else {
-        console.log("⚠️ No products in response");
-      }
-      console.log("=".repeat(60));
-
-      setProducts(productsArray);
+      setProducts(processedProducts);
     } catch (error: any) {
-      // ✅ Use console.log instead of console.error
       console.log("❌ Error fetching products:", error.message);
       Alert.alert("Error", "Failed to fetch products. Please check your connection.");
     } finally {
@@ -154,32 +283,19 @@ const MyProducts = () => {
     }
   };
 
-  // ✅ Use focus effect - refetch when screen is focused
   useFocusEffect(
     useCallback(() => {
-      console.log("🔄 Screen focused - fetching products");
-
-      // ✅ Reset filters if coming back from edit with resetFilters flag
       if (resetFiltersParam === "true") {
-        console.log("🔄 Resetting filters to default");
         setFilter("All");
         setSearchQuery("");
       }
-
       fetchProducts(false, updatedProductParam);
-
-      return () => {
-        console.log("📤 Screen unfocused");
-      };
-    }, [refreshParam, resetFiltersParam]) // ✅ Depend on both params
+      return () => { };
+    }, [refreshParam, resetFiltersParam])
   );
 
-  // ✅ Separate effect for when search/filter changes (but not on initial mount from refresh)
   useEffect(() => {
-    // Skip if we just reset filters (will be handled by useFocusEffect)
     if (resetFiltersParam === "true") return;
-
-    console.log("🔍 Filter/Search changed - refetching");
     fetchProducts(false, updatedProductParam);
   }, [searchQuery, filter]);
 
@@ -214,9 +330,6 @@ const MyProducts = () => {
               );
 
               if (!res.ok) {
-                const errData = await res.json();
-                // ✅ Use console.log instead of console.error
-                console.log("❌ Delete failed:", JSON.stringify(errData));
                 Alert.alert("Error", "Failed to delete product.");
                 return;
               }
@@ -226,60 +339,11 @@ const MyProducts = () => {
               );
               Alert.alert("Success", "Product deleted successfully!");
             } catch (error: any) {
-              // ✅ Use console.log instead of console.error
-              console.log("❌ Error deleting product:", error.message);
               Alert.alert("Error", "Failed to delete product.");
             }
           },
         },
       ]
-    );
-  };
-
-  const renderStatusLabel = (item: any) => {
-    // ✅ Check published status first
-    if (item.published === 0 || item.status === 0)
-      return (
-        <Text
-          style={[
-            styles.statusLabel,
-            { backgroundColor: "#ccc", color: "#555" },
-          ]}
-        >
-          Draft
-        </Text>
-      );
-    if (item.current_stock === 0)
-      return (
-        <Text
-          style={[
-            styles.statusLabel,
-            { backgroundColor: "#eb3b5a", color: "#fff" },
-          ]}
-        >
-          Out of Stock
-        </Text>
-      );
-    if (item.current_stock < item.min_qty)
-      return (
-        <Text
-          style={[
-            styles.statusLabel,
-            { backgroundColor: "#f7b731", color: "#fff" },
-          ]}
-        >
-          Low Stock
-        </Text>
-      );
-    return (
-      <Text
-        style={[
-          styles.statusLabel,
-          { backgroundColor: "#2dce89", color: "#fff" },
-        ]}
-      >
-        Active
-      </Text>
     );
   };
 
@@ -310,19 +374,24 @@ const MyProducts = () => {
         uri: `https://yemi.store/storage/app/public/product/${images[0].trim()}`,
       };
 
-    return undefined;
+    return require("@/assets/images/icon.png");
   };
 
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <ProductsHeader
-          title="My Products"
-          leftIcon="arrow-back"
-          onLeftPress={() => router.back()}
-          rightIcon="add"
-          onRightPress={() => router.push("/addProduct")}
-        />
+        <LinearGradient
+          colors={["#FA8232", "#FF6B35"]}
+          style={styles.header}
+        >
+          <ProductsHeader
+            title="My Products"
+            leftIcon="arrow-back"
+            onLeftPress={() => router.back()}
+            rightIcon="add"
+            onRightPress={() => router.push("/addProduct")}
+          />
+        </LinearGradient>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#FA8232" />
           <Text style={styles.loadingText}>Loading products...</Text>
@@ -333,22 +402,49 @@ const MyProducts = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ProductsHeader
-        title="My Products"
-        leftIcon="arrow-back"
-        onLeftPress={() => router.back()}
-        rightIcon="add"
-        onRightPress={() => router.push("/addProduct")}
-      />
+      <Animated.View style={{ opacity: headerFadeAnim }}>
+        <LinearGradient
+          colors={["#FA8232", "#FF6B35"]}
+          style={styles.header}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+        >
+          <ProductsHeader
+            title="My Products"
+            leftIcon="arrow-back"
+            onLeftPress={() => router.back()}
+            rightIcon="add"
+            onRightPress={() => router.push("/addProduct")}
+          />
+        </LinearGradient>
+      </Animated.View>
 
       <View style={styles.content}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search products..."
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
+        {/* Search Bar */}
+        <Animated.View
+          style={[
+            styles.searchContainer,
+            { transform: [{ translateY: searchSlideAnim }] },
+          ]}
+        >
+          <View style={styles.searchInputContainer}>
+            <Ionicons name="search" size={20} color="#999" />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search products..."
+              placeholderTextColor="#999"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            {searchQuery.length > 0 && (
+              <Pressable onPress={() => setSearchQuery("")}>
+                <Ionicons name="close-circle" size={20} color="#999" />
+              </Pressable>
+            )}
+          </View>
+        </Animated.View>
 
+        {/* Filters */}
         {products.length > 0 && (
           <View style={styles.filters}>
             {["All", "Active", "Draft", "Out of Stock"].map((type) => (
@@ -360,43 +456,63 @@ const MyProducts = () => {
                 ]}
                 onPress={() => setFilter(type)}
               >
-                <Text
-                  style={[
-                    styles.filterText,
-                    filter === type && styles.activeFilterText,
-                  ]}
-                >
-                  {type}
-                </Text>
+                {filter === type ? (
+                  <LinearGradient
+                    colors={["#FA8232", "#FF6B35"]}
+                    style={styles.activeFilterGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  >
+                    <Text style={styles.activeFilterText}>{type}</Text>
+                  </LinearGradient>
+                ) : (
+                  <Text style={styles.filterText}>{type}</Text>
+                )}
               </Pressable>
             ))}
           </View>
         )}
 
+        {/* Products List or Empty State */}
         {products.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Ionicons name="add-circle-outline" size={80} color="#FA8232" />
-            <Text style={styles.emptyText}>No products found</Text>
-            <Text style={styles.emptySubText}>
-              {filter !== "All" || searchQuery
-                ? "Try changing your filters or search"
-                : "Add your first product to get started"}
-            </Text>
-            {filter === "All" && !searchQuery && (
-              <Pressable
-                style={styles.addButton}
-                onPress={() => router.push("/addProduct")}
-              >
-                <Ionicons name="add" size={22} color="#fff" />
-                <Text style={styles.addButtonText}>Add Your First Product</Text>
-              </Pressable>
-            )}
+            <LinearGradient
+              colors={["#FFF5F0", "#FFFFFF"]}
+              style={styles.emptyCard}
+            >
+              <View style={styles.emptyIconContainer}>
+                <Ionicons name="cube-outline" size={80} color="#FA8232" />
+              </View>
+              <Text style={styles.emptyText}>No products found</Text>
+              <Text style={styles.emptySubText}>
+                {filter !== "All" || searchQuery
+                  ? "Try changing your filters or search"
+                  : "Add your first product to get started"}
+              </Text>
+              {filter === "All" && !searchQuery && (
+                <Pressable
+                  style={styles.addButton}
+                  onPress={() => router.push("/addProduct")}
+                >
+                  <LinearGradient
+                    colors={["#FA8232", "#FF6B35"]}
+                    style={styles.addButtonGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  >
+                    <Ionicons name="add-circle" size={24} color="#fff" />
+                    <Text style={styles.addButtonText}>Add Your First Product</Text>
+                  </LinearGradient>
+                </Pressable>
+              )}
+            </LinearGradient>
           </View>
         ) : (
           <FlatList
             data={products}
             keyExtractor={(item) => item.id?.toString() || Math.random().toString()}
             showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.listContent}
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}
@@ -405,58 +521,24 @@ const MyProducts = () => {
                 tintColor="#FA8232"
               />
             }
-            renderItem={({ item }) => (
-              <Pressable
+            renderItem={({ item, index }) => (
+              <AnimatedProductCard
+                item={item}
+                index={index}
                 onPress={() =>
                   router.push({
                     pathname: "/productDetails",
                     params: { productId: item.id.toString() },
                   })
                 }
-                style={styles.card}
-              >
-                <Image
-                  source={getProductImage(item)}
-                  style={styles.productImage}
-                  defaultSource={require("@/assets/images/icon.png")}
-                />
-                <View style={styles.cardContent}>
-                  <Text style={styles.productName} numberOfLines={2}>
-                    {item.name}
-                  </Text>
-                  <Text style={styles.productSKU}>SKU: {item.code}</Text>
-                  <Text style={styles.productPrice}>${item.unit_price}</Text>
-                  <Text style={styles.productStock}>
-                    Stock: {item.current_stock} units
-                  </Text>
-                  {renderStatusLabel(item)}
-                </View>
-
-                <View style={styles.buttonContainer}>
-                  <Pressable
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      router.push({
-                        pathname: "/editProduct",
-                        params: { productId: item.id.toString() },
-                      });
-                    }}
-                    style={styles.editButton}
-                  >
-                    <Ionicons name="pencil" size={16} color="#fff" />
-                  </Pressable>
-
-                  <Pressable
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      handleDeleteProduct(item.id);
-                    }}
-                    style={styles.deleteButton}
-                  >
-                    <Ionicons name="trash" size={16} color="#fff" />
-                  </Pressable>
-                </View>
-              </Pressable>
+                onEdit={() =>
+                  router.push({
+                    pathname: "/editProduct",
+                    params: { productId: item.id.toString() },
+                  })
+                }
+                onDelete={() => handleDeleteProduct(item.id)}
+              />
             )}
           />
         )}
@@ -468,123 +550,272 @@ const MyProducts = () => {
 export default MyProducts;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
-  content: { flex: 1, padding: 20 },
-  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
-  loadingText: { marginTop: 10, fontSize: 16, color: "#888" },
-  searchInput: {
-    backgroundColor: "#f1f1f1",
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 12,
-    fontSize: 15,
+  container: {
+    flex: 1,
+    backgroundColor: "#F5F7FA",
   },
+  header: {
+    paddingVertical: 16,
+    paddingTop: Platform.OS === "ios" ? 0 : 16,
+    elevation: 8,
+    shadowColor: "#FA8232",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  content: {
+    flex: 1,
+    padding: 20,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: "#666",
+    fontWeight: "600",
+  },
+
+  /* Search Bar */
+  searchContainer: {
+    marginBottom: 16,
+  },
+  searchInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFF",
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.05)",
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: "#1A1A1A",
+  },
+
+  /* Filters */
   filters: {
     flexDirection: "row",
-    justifyContent: "space-around",
-    marginBottom: 15,
+    gap: 8,
+    marginBottom: 20,
     flexWrap: "wrap",
   },
   filterButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 14,
     borderRadius: 20,
-    backgroundColor: "#f1f1f1",
-    marginBottom: 8,
+    overflow: "hidden",
   },
-  activeFilterButton: { backgroundColor: "#FA8232" },
-  filterText: { color: "#555", fontWeight: "600", fontSize: 13 },
-  activeFilterText: { color: "#fff" },
+  activeFilterButton: {},
+  activeFilterGradient: {
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+  },
+  filterText: {
+    color: "#666",
+    fontWeight: "600",
+    fontSize: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    backgroundColor: "#FFF",
+    borderRadius: 20,
+  },
+  activeFilterText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 14,
+  },
+
+  /* Product Card */
+  listContent: {
+    paddingBottom: 20,
+  },
+  cardWrapper: {
+    marginBottom: 16,
+  },
   card: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 12,
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    marginBottom: 12,
-    elevation: 2,
+    borderRadius: 20,
+    padding: 16,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.05)",
+  },
+  cardContent: {
+    flexDirection: "row",
+    marginBottom: 12,
   },
   productImage: {
-    width: 70,
-    height: 70,
-    borderRadius: 8,
-    marginRight: 12,
-    backgroundColor: "#f1f1f1",
+    width: 100,
+    height: 100,
+    borderRadius: 12,
+    marginRight: 16,
+    backgroundColor: "#F0F0F0",
   },
-  cardContent: { flex: 1 },
-  productName: { fontSize: 16, fontWeight: "600", marginBottom: 4 },
-  productSKU: { fontSize: 12, color: "#888", marginBottom: 2 },
-  productPrice: {
-    fontSize: 15,
+  productInfo: {
+    flex: 1,
+    justifyContent: "space-between",
+  },
+  productName: {
+    fontSize: 17,
     fontWeight: "700",
-    marginVertical: 2,
+    marginBottom: 6,
+    color: "#1A1A1A",
+    letterSpacing: -0.3,
+  },
+  skuContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginBottom: 8,
+  },
+  productSKU: {
+    fontSize: 13,
+    color: "#666",
+  },
+  priceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  productPrice: {
+    fontSize: 20,
+    fontWeight: "800",
     color: "#FA8232",
+    letterSpacing: -0.5,
   },
-  productStock: { fontSize: 12, color: "#666", marginBottom: 4 },
-  statusLabel: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    fontSize: 10,
+  stockBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#F0F0F0",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  productStock: {
+    fontSize: 13,
     fontWeight: "600",
-    alignSelf: "flex-start",
-    marginTop: 2,
+    color: "#666",
   },
+  statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    alignSelf: "flex-start",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#FFF",
+    letterSpacing: 0.3,
+  },
+
+  /* Action Buttons */
+  actionButtons: {
+    flexDirection: "row",
+    gap: 10,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(0,0,0,0.05)",
+    paddingTop: 12,
+  },
+  editButton: {
+    flex: 1,
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  deleteButton: {
+    flex: 1,
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  actionButtonGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    gap: 8,
+  },
+
+  /* Empty State */
   emptyContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
   },
+  emptyCard: {
+    width: "100%",
+    borderRadius: 24,
+    padding: 40,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  emptyIconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: "rgba(250, 130, 50, 0.1)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 24,
+  },
   emptyText: {
-    fontSize: 16,
-    color: "#888",
-    marginTop: 10,
-    marginBottom: 8,
-    textAlign: "center",
-    fontWeight: "600",
+    fontSize: 22,
+    color: "#1A1A1A",
+    marginBottom: 12,
+    fontWeight: "700",
+    letterSpacing: -0.5,
   },
   emptySubText: {
-    fontSize: 14,
-    color: "#999",
-    marginBottom: 20,
+    fontSize: 15,
+    color: "#666",
+    marginBottom: 32,
     textAlign: "center",
+    lineHeight: 22,
   },
   addButton: {
+    borderRadius: 16,
+    overflow: "hidden",
+    shadowColor: "#FA8232",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  addButtonGradient: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FA8232",
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 25,
+    justifyContent: "center",
+    paddingVertical: 16,
+    paddingHorizontal: 28,
+    gap: 10,
   },
   addButtonText: {
     color: "#fff",
-    fontWeight: "600",
-    marginLeft: 8,
-    fontSize: 15,
-  },
-  buttonContainer: { flexDirection: "column", alignItems: "center", gap: 8 },
-  editButton: {
-    backgroundColor: "#2d98da",
-    padding: 8,
-    borderRadius: 8,
-    width: 36,
-    height: 36,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  deleteButton: {
-    backgroundColor: "#eb3b5a",
-    padding: 8,
-    borderRadius: 8,
-    width: 36,
-    height: 36,
-    justifyContent: "center",
-    alignItems: "center",
+    fontWeight: "700",
+    fontSize: 16,
+    letterSpacing: 0.3,
   },
 });
