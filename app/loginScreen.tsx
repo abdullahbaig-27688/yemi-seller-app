@@ -1,6 +1,7 @@
 import LoginField from "@/components/inputFields";
 import PrimaryButton from "@/components/primaryButton";
 
+import { useAuth } from "@/src/context/AuthContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import { Image } from "expo-image";
@@ -23,7 +24,7 @@ const LoginScreen = () => {
   const [password, setPassord] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-
+  const { login } = useAuth();
 
   /* ---------------- LOGIN ---------------- */
   const handleLogin = async () => {
@@ -36,38 +37,23 @@ const LoginScreen = () => {
     try {
       const loginRes = await axios.post(
         "https://yemi.store/api/v2/seller/auth/login",
-        { email, password },
-        {
-          headers: {
-            Accept: "application/json",
-            "Content-Type": "application/json",
-          },
-        }
+        { email, password }
       );
 
       const token = loginRes.data?.token || loginRes.data?.access_token;
       if (!token) throw new Error("No token received");
 
-      await AsyncStorage.setItem("seller_token", token);
+      // ✅ Save token in AuthContext (which uses SecureStore internally)
+      await login(token);
 
+      // Optionally fetch user info and store separately
       const profileRes = await axios.get(
         "https://yemi.store/api/v2/seller/seller-info",
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
       const user = profileRes.data;
-
-      const userData = {
-        id: user.id,
-        name: `${user.f_name || ""} ${user.l_name || ""}`.trim(),
-        email: user.email,
-        phone: user.phone,
-        image: user.image_full_url?.path || null,
-        token,
-        status: user.status,
-      };
-
-      await AsyncStorage.setItem("user", JSON.stringify(userData));
+      await AsyncStorage.setItem("user", JSON.stringify(user));
 
       Alert.alert("Success", "Login successful!");
       router.replace("/(tabs)");
