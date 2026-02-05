@@ -1,19 +1,19 @@
 import Heading from "@/components/Header";
+import { useAuth } from "@/src/context/AuthContext";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   FlatList,
   Image,
   Pressable,
   StyleSheet,
   Text,
-  Alert,
   TextInput,
   View,
-  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const statusColors: Record<string, string> = {
   pending: "#f1c40f",
@@ -23,6 +23,7 @@ const statusColors: Record<string, string> = {
 };
 
 const IncomingOrder = () => {
+  const { token } = useAuth();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -34,7 +35,6 @@ const IncomingOrder = () => {
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      const token = await AsyncStorage.getItem("seller_token");
       if (!token) {
         Alert.alert("Error", "No auth token found. Please login again.");
         setLoading(false);

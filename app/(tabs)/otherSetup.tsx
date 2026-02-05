@@ -1,29 +1,29 @@
+import OrderSetupHeader from "@/components/Header";
+import Input from "@/components/input";
+import { useAuth } from "@/src/context/AuthContext";
+import { Ionicons } from "@expo/vector-icons";
+import DateTimePicker from "@react-native-community/datetimepicker";
+import * as DocumentPicker from "expo-document-picker";
+import { router } from "expo-router";
 import React, { useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
   Alert,
-  Pressable,
   Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Input from "@/components/input";
-import { Ionicons } from "@expo/vector-icons";
-import * as DocumentPicker from "expo-document-picker";
-import OrderSetupHeader from "@/components/Header";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import DateTimePicker from "@react-native-community/datetimepicker";
-import { router } from "expo-router";
-// import { useLocalSearchParams } from "expo-router";
 
 const OtherSetup = () => {
+  const { token } = useAuth();
   const [reorderLevel, setReorderLevel] = useState("");
   const [tin, setTin] = useState("");
   const [expiryDate, setExpiryDate] = useState("");
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [tinFile, setTinFile] = useState(null);
+  const [tinFile, setTinFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
 
   // 📌 Pick TIN Certificate
   const pickTinCertificate = async () => {
@@ -38,7 +38,7 @@ const OtherSetup = () => {
   };
 
   // 📌 Date Picker
-  const onChangeDate = (event, selectedDate) => {
+  const onChangeDate = (event: any, selectedDate?: Date) => {
     setShowDatePicker(false);
     if (selectedDate) {
       const date = selectedDate.toISOString().split("T")[0]; // YYYY-MM-DD
@@ -53,10 +53,10 @@ const OtherSetup = () => {
     if (!tinFile) return Alert.alert("Please upload TIN certificate");
 
     try {
-      const token = await AsyncStorage.getItem("seller_token");
       if (!token) return Alert.alert("No token found");
 
       const formData = new FormData();
+      formData.append("_method", "PUT");
       formData.append("tax_identification_number", tin);
       formData.append("tin_expire_date", expiryDate);
 
@@ -69,17 +69,15 @@ const OtherSetup = () => {
         uri: fileUri,
         name: tinFile.name,
         type: tinFile.name.endsWith(".pdf") ? "application/pdf" : "image/jpeg",
-      });
+      } as any);
 
-      // 🔹 Log FormData for debugging
-      for (let [key, value] of formData.entries()) {
-        console.log("FormData:", key, value);
-      }
+      // 🔹 Note: FormData.entries() is not supported in React Native's FormData implementation
+      console.log("FormData prepared with TIN:", tin);
 
       const response = await fetch(
         "https://yemi.store/api/v2/seller/shop-update",
         {
-          method: "PUT",
+          method: "POST",
           headers: {
             Accept: "application/json",
             Authorization: `Bearer ${token}`,

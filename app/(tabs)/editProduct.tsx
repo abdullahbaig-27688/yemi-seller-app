@@ -1,12 +1,12 @@
 import AddProductHeader from "@/components/Header";
 import Input from "@/components/input";
+import { useAuth } from "@/src/context/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 import axios from "axios";
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
-import * as SecureStore from "expo-secure-store";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -100,7 +100,7 @@ const ImageManager = ({ label, images, onImagesChange, onPickNew }) => {
 
 /* ---------------- EDIT PRODUCT SCREEN ---------------- */
 const EditProduct = () => {
-  const [token, setToken] = useState<string | null>(null);
+  const { token } = useAuth();
   const { productId } = useLocalSearchParams();
 
   // Basic fields
@@ -154,14 +154,7 @@ const EditProduct = () => {
     }).start();
   }, []);
 
-  // Fetch token from secure storage
-  useEffect(() => {
-    const fetchToken = async () => {
-      const t = await SecureStore.getItemAsync("auth_token");
-      setToken(t);
-    };
-    fetchToken();
-  }, []);
+
 
   /* ---------------- FETCH CATEGORIES ---------------- */
   useEffect(() => {

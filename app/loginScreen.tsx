@@ -2,7 +2,6 @@ import LoginField from "@/components/inputFields";
 import PrimaryButton from "@/components/primaryButton";
 
 import { useAuth } from "@/src/context/AuthContext";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
@@ -43,17 +42,27 @@ const LoginScreen = () => {
       const token = loginRes.data?.token || loginRes.data?.access_token;
       if (!token) throw new Error("No token received");
 
-      // ✅ Save token in AuthContext (which uses SecureStore internally)
-      await login(token);
+      console.log("TOKEN:", token);
 
-      // Optionally fetch user info and store separately
+      // Fetch user info
       const profileRes = await axios.get(
         "https://yemi.store/api/v2/seller/seller-info",
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
       const user = profileRes.data;
-      await AsyncStorage.setItem("user", JSON.stringify(user));
+
+      // ✅ Save token and profile in AuthContext
+      await login(token, {
+        firstName: user.f_name || "",
+        lastName: user.l_name || "",
+        email: user.email || "",
+        phone: user.phone || "",
+        holderName: user.holder_name || "",
+        bankName: user.bank_name || "",
+        branchName: user.branch || "",
+        accountNumber: user.account_no || "",
+      });
 
       Alert.alert("Success", "Login successful!");
       router.replace("/(tabs)");

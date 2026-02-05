@@ -1,6 +1,6 @@
 import ConfirmedHeader from "@/components/Header";
 import SearchBar from "@/components/SearchBar";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useAuth } from "@/src/context/AuthContext";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
@@ -13,7 +13,9 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+
 const ConfirmedOrder = () => {
+  const { token } = useAuth()
   const [search, setSearch] = useState("");
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -23,7 +25,7 @@ const ConfirmedOrder = () => {
     try {
       setLoading(true);
 
-      const token = await AsyncStorage.getItem("seller_token");
+      // const token = await AsyncStorage.getItem("seller_token");
 
       if (!token) {
         Alert.alert("Error", "Token missing. Please login again.");

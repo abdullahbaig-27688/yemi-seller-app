@@ -1,5 +1,5 @@
 import WithdrawHeader from "@/components/Header";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useAuth } from "@/src/context/AuthContext";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const Withdraw = () => {
+    const { token } = useAuth();
     const router = useRouter();
     const [activeTab, setActiveTab] = useState("All Requests");
     const [withdrawals, setWithdrawals] = useState([]);
@@ -30,7 +31,7 @@ const Withdraw = () => {
     const fetchWithdrawals = async () => {
         try {
             setLoading(true);
-            const token = await AsyncStorage.getItem("seller_token");
+            if (!token) return;
 
             const status = STATUS_MAP[activeTab];
 

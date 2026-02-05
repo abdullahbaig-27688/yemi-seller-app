@@ -2,14 +2,12 @@ import AddProductHeader from "@/components/Header";
 import Input from "@/components/input";
 import { useAuth } from "@/src/context/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Picker } from "@react-native-picker/picker";
 import axios from "axios";
 import * as FileSystem from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import * as SecureStore from "expo-secure-store";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
@@ -25,7 +23,12 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 /* ---------------- ANIMATED SECTION COMPONENT ---------------- */
-const AnimatedSection = ({ children, delay = 0 }) => {
+interface AnimatedSectionProps {
+  children: React.ReactNode;
+  delay?: number;
+}
+
+const AnimatedSection: React.FC<AnimatedSectionProps> = ({ children, delay = 0 }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
 
@@ -60,7 +63,14 @@ const AnimatedSection = ({ children, delay = 0 }) => {
 };
 
 /* ---------------- IMAGE PICKER COMPONENT ---------------- */
-const EnhancedImagePicker = ({ label, images, onImagesChange, multiple = false }) => {
+interface EnhancedImagePickerProps {
+  label: string;
+  images: string[];
+  onImagesChange: (urs: string[]) => void;
+  multiple?: boolean;
+}
+
+const EnhancedImagePicker: React.FC<EnhancedImagePickerProps> = ({ label, images, onImagesChange, multiple = false }) => {
   const pickImages = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -76,8 +86,8 @@ const EnhancedImagePicker = ({ label, images, onImagesChange, multiple = false }
     }
   };
 
-  const removeImage = (index) => {
-    const newImages = images.filter((_, i) => i !== index);
+  const removeImage = (index: number) => {
+    const newImages = images.filter((_, i: number) => i !== index);
     onImagesChange(newImages);
   };
 
@@ -149,7 +159,7 @@ const AddProduct = () => {
   const [author, setAuthor] = useState("");
   const [publishingHouse, setPublishingHouse] = useState("");
   const [deliveryType, setDeliveryType] = useState("");
-  const { isAuthenticated, logout } = useAuth();
+  const { isAuthenticated, logout, token } = useAuth();
 
   const headerFadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -191,8 +201,8 @@ const AddProduct = () => {
 
   useEffect(() => {
     const fetchCategories = async () => {
+      if (!token) return;
       try {
-        const token = await AsyncStorage.getItem("seller_token");
         const res = await fetch("https://yemi.store/api/v1/categories", {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -215,12 +225,12 @@ const AddProduct = () => {
     };
 
     fetchCategories();
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     const fetchBrands = async () => {
+      if (!token) return;
       try {
-        const token = await AsyncStorage.getItem("seller_token");
         const res = await fetch("https://yemi.store/api/v1/brands", {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -243,7 +253,7 @@ const AddProduct = () => {
     };
 
     fetchBrands();
-  }, []);
+  }, [token]);
 
   const handleAddProduct = async (publish: boolean) => {
     if (!name.trim()) {
@@ -270,8 +280,6 @@ const AddProduct = () => {
     try {
       setIsPublishing(true);
 
-      // const token = await AsyncStorage.getItem("seller_token");
-      const token = await SecureStore.getItemAsync("auth_token");
       if (!token) {
         Alert.alert("Error", "Seller token not found. Please log in again.");
         return;

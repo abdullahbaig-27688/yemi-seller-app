@@ -1,19 +1,18 @@
+import ChatHeader from "@/components/Header";
+import { useAuth } from "@/src/context/AuthContext";
+import { router, useNavigation } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  Pressable,
   ActivityIndicator,
-  Image,
   Alert,
+  FlatList,
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { router } from "expo-router";
-import { useNavigation } from "expo-router";
-import ChatHeader from "@/components/Header";
 
 import axios from "axios";
 
@@ -34,11 +33,11 @@ const InboxList: React.FC = () => {
   const [chats, setChats] = useState<Chat[]>([]);
   const [loading, setLoading] = useState(true);
   const navigation = useNavigation();
+  const { token } = useAuth();
 
   const fetchChats = async () => {
     try {
       setLoading(true);
-      const token = await AsyncStorage.getItem("seller_token");
       const response = await axios.get(
         "https://yemi.store/api/v2/seller/messages/list/customer",
         {
@@ -55,16 +54,21 @@ const InboxList: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchChats();
-  }, []);
+    if (token) {
+      fetchChats();
+    }
+  }, [token]);
 
   const renderItem = ({ item }: { item: Chat }) => (
     <Pressable
       style={styles.chatItem}
       onPress={() =>
-        navigation.navigate("chatList", {
-          customerId: item.customer.id,
-          customerName: item.customer.name,
+        router.push({
+          pathname: "/chatList",
+          params: {
+            customerId: item.customer.id,
+            customerName: item.customer.name,
+          },
         })
       }
     >

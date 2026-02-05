@@ -1,5 +1,6 @@
 import ShopInfoHeader from "@/components/Header";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useAuth } from "@/src/context/AuthContext";
+import { router } from "expo-router";
 import moment from "moment";
 import React, { useEffect, useState } from "react";
 import {
@@ -16,9 +17,9 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
 
 const ShopSetting = () => {
+  const { token } = useAuth();
   const [loading, setLoading] = useState(true);
   const [storeVisible, setStoreVisible] = useState(true);
   const [vacationEnabled, setVacationEnabled] = useState(false);
@@ -40,7 +41,6 @@ const ShopSetting = () => {
   const fetchShopSettings = async () => {
     try {
       setLoading(true);
-      const token = await AsyncStorage.getItem("seller_token");
       if (!token) {
         Alert.alert("Error", "No auth token found. Please login again.");
         setLoading(false);
@@ -110,8 +110,8 @@ const ShopSetting = () => {
   };
 
   // ------------------ SIMPLE DATE PICKER ------------------
-  const openDatePicker = (type) => {
-    setCurrentDateType(type);
+  const openDatePicker = (type: "start" | "end") => {
+    setCurrentDateType(type as any);
     setTempDate(type === "start" ? startDate : endDate);
     setShowDateModal(true);
   };
@@ -130,7 +130,7 @@ const ShopSetting = () => {
     closeDatePicker();
   };
 
-  const adjustDate = (field, increment) => {
+  const adjustDate = (field: string, increment: number) => {
     const newDate = new Date(tempDate);
     switch (field) {
       case "year":
@@ -155,7 +155,6 @@ const ShopSetting = () => {
   // ------------------ API CALL ------------------
   const saveVacationSettings = async () => {
     try {
-      const token = await AsyncStorage.getItem("seller_token");
       if (!token) return;
 
       // Format dates as local time without UTC conversion
@@ -311,8 +310,8 @@ const ShopSetting = () => {
                       {val === "change"
                         ? "Until I Change"
                         : val === "24"
-                        ? "24 Hours"
-                        : "Custom Time"}
+                          ? "24 Hours"
+                          : "Custom Time"}
                     </Text>
                   </Pressable>
                 ))}
@@ -460,7 +459,14 @@ const ShopSetting = () => {
 };
 
 // Date Control Component
-const DateControl = ({ label, value, onIncrement, onDecrement }) => (
+interface DateControlProps {
+  label: string;
+  value: number;
+  onIncrement: () => void;
+  onDecrement: () => void;
+}
+
+const DateControl: React.FC<DateControlProps> = ({ label, value, onIncrement, onDecrement }) => (
   <View style={styles.controlGroup}>
     <Text style={styles.controlLabel}>{label}</Text>
     <TouchableOpacity style={styles.controlBtn} onPress={onIncrement}>

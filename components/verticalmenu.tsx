@@ -1,8 +1,8 @@
+import { useAuth } from "@/src/context/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import {
   Alert,
   Animated,
@@ -113,12 +113,11 @@ const AnimatedMenuItem: React.FC<{
 };
 
 const VerticalMenu: React.FC<VerticalMenuProps> = ({ onSelect }) => {
-  const [userProfile, setUserProfile] = useState<any>(null);
+  const { userProfile, logout } = useAuth();
   const headerFadeAnim = useRef(new Animated.Value(0)).current;
   const profileScaleAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    loadUserProfile();
     Animated.parallel([
       Animated.timing(headerFadeAnim, {
         toValue: 1,
@@ -134,17 +133,6 @@ const VerticalMenu: React.FC<VerticalMenuProps> = ({ onSelect }) => {
       }),
     ]).start();
   }, []);
-
-  const loadUserProfile = async () => {
-    try {
-      const savedProfile = await AsyncStorage.getItem("userProfile");
-      if (savedProfile) {
-        setUserProfile(JSON.parse(savedProfile));
-      }
-    } catch (error) {
-      console.log("Error loading profile:", error);
-    }
-  };
 
   const menuItems: MenuItem[] = [
     {
@@ -199,8 +187,7 @@ const VerticalMenu: React.FC<VerticalMenuProps> = ({ onSelect }) => {
           style: "destructive",
           onPress: async () => {
             try {
-              await AsyncStorage.removeItem("seller_token");
-              await AsyncStorage.removeItem("userProfile");
+              await logout();
               router.replace("/loginScreen");
             } catch (error) {
               console.log("Logout error:", error);

@@ -1,22 +1,22 @@
-import React, { useEffect, useState, useRef } from "react";
-import {
-  View,
-  Text,
-  FlatList,
-  TextInput,
-  Pressable,
-  StyleSheet,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useAuth } from "@/src/context/AuthContext";
 import axios from "axios";
 import { useLocalSearchParams } from "expo-router";
-// import {} from "@/components/Header"
+import React, { useEffect, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const ChatScreen: React.FC = () => {
+  const { token } = useAuth();
   const params = useLocalSearchParams();
   const customerId = params.customerId as string;
   const customerName = params.customerName as string;
@@ -29,7 +29,7 @@ const ChatScreen: React.FC = () => {
   const fetchMessages = async () => {
     try {
       setLoading(true);
-      const token = await AsyncStorage.getItem("seller_token");
+      if (!token) return;
 
       const response = await axios.get(
         `https://yemi.store/api/v2/seller/messages/list/customer`,
@@ -57,10 +57,9 @@ const ChatScreen: React.FC = () => {
   };
 
   const sendMessage = async () => {
-    if (!newMessage.trim()) return;
+    if (!newMessage.trim() || !token) return;
 
     try {
-      const token = await AsyncStorage.getItem("seller_token");
       console.log("TOKEN:", token);
       const messageText = encodeURIComponent(newMessage);
 

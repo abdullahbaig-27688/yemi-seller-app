@@ -1,6 +1,6 @@
 import CancelledHeader from "@/components/Header";
 import SearchBar from "@/components/SearchBar";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useAuth } from "@/src/context/AuthContext";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const CancelledOrder = () => {
+  const { token } = useAuth();
   const [search, setSearch] = useState("");
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -25,7 +26,7 @@ const CancelledOrder = () => {
       setLoading(true);
       setError(""); // reset error
 
-      const token = await AsyncStorage.getItem("seller_token");
+      // const token = await AsyncStorage.getItem("seller_token");
       if (!token) {
         Alert.alert("Error", "No auth token found. Please login again.");
         setLoading(false);
