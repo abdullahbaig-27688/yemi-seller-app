@@ -41,7 +41,7 @@ export default function RootLayout() {
 
             {/* App Screens */}
             <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="addProduct" />
+            {/* <Stack.Screen name="addProduct" /> */}
           </Stack>
 
           <StatusBar style="auto" />

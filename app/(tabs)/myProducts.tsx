@@ -1,8 +1,9 @@
 import ProductsHeader from "@/components/Header";
+import { useAuth } from "@/src/context/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
 import { LinearGradient } from "expo-linear-gradient";
-import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -162,13 +163,14 @@ const AnimatedProductCard = ({ item, index, onPress, onEdit, onDelete }) => {
 };
 
 const MyProducts = () => {
+  const { token, logout } = useAuth();
+
   const [products, setProducts] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState("All");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
-  const params = useLocalSearchParams();
 
   const headerFadeAnim = useRef(new Animated.Value(0)).current;
   const searchSlideAnim = useRef(new Animated.Value(-50)).current;
@@ -190,82 +192,50 @@ const MyProducts = () => {
     ]).start();
   }, []);
 
-  const refreshParam = params.refresh;
-  const resetFiltersParam = params.resetFilters;
-  const updatedProductParam =
-    (params as any).updatedProduct ??
-    (params as URLSearchParams).get?.("updatedProduct");
-
-  const fetchProducts = async (
-    isRefreshing = false,
-    updatedProductParam: any = null
-  ) => {
+  const fetchProducts = async (isRefreshing = false) => {
+    console.log("🔄 Fetching products...");
     if (!isRefreshing) setLoading(true);
+
     try {
-      const token = await AsyncStorage.getItem("seller_token");
       if (!token) {
+        console.log("❌ No token available");
         setLoading(false);
         return;
       }
 
-      const params = new URLSearchParams();
+      const params: any = {};
 
       if (searchQuery && searchQuery.trim()) {
-        params.append("search", searchQuery.trim());
+        params.search = searchQuery.trim();
       }
 
       if (filter && filter !== "All") {
         if (filter === "Active") {
-          params.append("status", "1");
-          params.append("published", "1");
+          params.status = "1";
+          params.published = "1";
         }
         if (filter === "Draft") {
-          params.append("published", "0");
+          params.published = "0";
         }
         if (filter === "Out of Stock") {
-          params.append("stock", "0");
+          params.stock = "0";
         }
       }
 
-      const queryString = params.toString();
-      const url = queryString
-        ? `https://yemi.store/api/v2/seller/products/list?${queryString}`
-        : `https://yemi.store/api/v2/seller/products/list`;
-
-      const res = await fetch(url, {
-        method: "GET",
+      const res = await axios.get("https://yemi.store/api/v2/seller/products/list", {
         headers: {
           Authorization: `Bearer ${token}`,
           Accept: "application/json",
         },
+        params,
       });
 
-      if (!res.ok) {
-        try {
-          const errData = await res.json();
-          if (res.status === 500 && errData.message?.includes("could not be converted to string")) {
-            Alert.alert(
-              "Database Error",
-              "Some products have corrupted data. Please contact support.",
-              [{ text: "OK" }]
-            );
-          } else {
-            Alert.alert("Error", "Failed to fetch products");
-          }
-        } catch (e) {
-          Alert.alert("Error", "Failed to fetch products");
-        }
-        setLoading(false);
-        setRefreshing(false);
-        return;
-      }
-
-      const data = await res.json();
+      console.log("✅ Products fetched");
 
       let productsArray: any[] = [];
-      if (Array.isArray(data)) productsArray = data;
-      else if (Array.isArray(data.products)) productsArray = data.products;
-      else if (Array.isArray(data.products?.data)) productsArray = data.products.data;
+      if (Array.isArray(res.data)) productsArray = res.data;
+      else if (Array.isArray(res.data.products)) productsArray = res.data.products;
+      else if (Array.isArray(res.data.products?.data)) productsArray = res.data.products.data;
 
       // Process products to add image sources
       const processedProducts = productsArray.map(product => ({
@@ -273,40 +243,45 @@ const MyProducts = () => {
         imageSource: getProductImage(product)
       }));
 
+      console.log("📦 Processed products:", processedProducts.length);
       setProducts(processedProducts);
     } catch (error: any) {
       console.log("❌ Error fetching products:", error.message);
-      Alert.alert("Error", "Failed to fetch products. Please check your connection.");
+      if (error.response?.status === 401) {
+        Alert.alert("Session Expired", "Please login again");
+        logout();
+      } else {
+        Alert.alert("Error", "Failed to fetch products. Please check your connection.");
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
+  // MAIN FIX: Use useFocusEffect to always refresh when screen is focused
   useFocusEffect(
     useCallback(() => {
-      if (resetFiltersParam === "true") {
-        setFilter("All");
-        setSearchQuery("");
-      }
-      fetchProducts(false, updatedProductParam);
-      return () => { };
-    }, [refreshParam, resetFiltersParam])
+      console.log("👁️ Screen focused - fetching products");
+      fetchProducts(false);
+      return () => {
+        console.log("👋 Screen unfocused");
+      };
+    }, [token])
   );
 
-  useEffect(() => {
-    if (resetFiltersParam === "true") return;
-    fetchProducts(false, updatedProductParam);
-  }, [searchQuery, filter]);
-
   const onRefresh = () => {
+    console.log("🔄 Manual refresh triggered");
     setRefreshing(true);
-    fetchProducts(true, updatedProductParam);
+    fetchProducts(true);
   };
 
   const handleDeleteProduct = async (productId: number) => {
-    const token = await AsyncStorage.getItem("seller_token");
-    if (!token) return;
+    if (!token) {
+      Alert.alert("Session expired", "Please login again");
+      logout();
+      return;
+    }
 
     Alert.alert(
       "Delete Product",
@@ -318,28 +293,88 @@ const MyProducts = () => {
           style: "destructive",
           onPress: async () => {
             try {
-              const res = await fetch(
-                `https://yemi.store/api/v2/seller/products/delete/${productId}`,
-                {
-                  method: "DELETE",
-                  headers: {
-                    Authorization: `Bearer ${token}`,
-                    Accept: "application/json",
-                  },
-                }
-              );
+              console.log("🗑️ Attempting to delete product:", productId);
 
-              if (!res.ok) {
-                Alert.alert("Error", "Failed to delete product.");
+              // Method 1: Try POST with FormData and _method=DELETE
+              try {
+                const formData = new FormData();
+                formData.append("_method", "DELETE");
+
+                const response = await axios.post(
+                  `https://yemi.store/api/v2/seller/products/delete/${productId}`,
+                  formData,
+                  {
+                    headers: {
+                      Authorization: `Bearer ${token}`,
+                      Accept: "application/json",
+                      "Content-Type": "multipart/form-data",
+                    },
+                  }
+                );
+
+                console.log("✅ Delete successful (Method 1 - POST with FormData)");
+
+                // Remove from local state immediately
+                setProducts(prev => prev.filter(item => item.id !== productId));
+                Alert.alert("Success", "Product deleted successfully");
                 return;
+              } catch (error1: any) {
+                console.log("⚠️ Method 1 failed:", error1.response?.data || error1.message);
               }
 
-              setProducts((prev) =>
-                prev.filter((item) => item.id !== productId)
+              // Method 2: Try DELETE request
+              try {
+                await axios.delete(
+                  `https://yemi.store/api/v2/seller/products/delete/${productId}`,
+                  {
+                    headers: {
+                      Authorization: `Bearer ${token}`,
+                      Accept: "application/json",
+                    },
+                  }
+                );
+
+                console.log("✅ Delete successful (Method 2 - DELETE)");
+
+                setProducts(prev => prev.filter(item => item.id !== productId));
+                Alert.alert("Success", "Product deleted successfully");
+                return;
+              } catch (error2: any) {
+                console.log("⚠️ Method 2 failed:", error2.response?.data || error2.message);
+              }
+
+              // Method 3: Try POST with JSON body
+              try {
+                await axios.post(
+                  `https://yemi.store/api/v2/seller/products/delete/${productId}`,
+                  { _method: "DELETE" },
+                  {
+                    headers: {
+                      Authorization: `Bearer ${token}`,
+                      Accept: "application/json",
+                      "Content-Type": "application/json",
+                    },
+                  }
+                );
+
+                console.log("✅ Delete successful (Method 3 - POST with JSON)");
+
+                setProducts(prev => prev.filter(item => item.id !== productId));
+                Alert.alert("Success", "Product deleted successfully");
+                return;
+              } catch (error3: any) {
+                console.log("⚠️ Method 3 failed:", error3.response?.data || error3.message);
+              }
+
+              // If all methods fail
+              Alert.alert(
+                "Error",
+                "Unable to delete product. Please try again or contact support."
               );
-              Alert.alert("Success", "Product deleted successfully!");
-            } catch (error: any) {
-              Alert.alert("Error", "Failed to delete product.");
+
+            } catch (err: any) {
+              console.log("❌ Unexpected delete error:", err);
+              Alert.alert("Error", "An unexpected error occurred");
             }
           },
         },
@@ -434,10 +469,16 @@ const MyProducts = () => {
               placeholder="Search products..."
               placeholderTextColor="#999"
               value={searchQuery}
-              onChangeText={setSearchQuery}
+              onChangeText={(text) => {
+                setSearchQuery(text);
+                setTimeout(() => fetchProducts(false), 500);
+              }}
             />
             {searchQuery.length > 0 && (
-              <Pressable onPress={() => setSearchQuery("")}>
+              <Pressable onPress={() => {
+                setSearchQuery("");
+                fetchProducts(false);
+              }}>
                 <Ionicons name="close-circle" size={20} color="#999" />
               </Pressable>
             )}
@@ -454,7 +495,10 @@ const MyProducts = () => {
                   styles.filterButton,
                   filter === type && styles.activeFilterButton,
                 ]}
-                onPress={() => setFilter(type)}
+                onPress={() => {
+                  setFilter(type);
+                  setTimeout(() => fetchProducts(false), 100);
+                }}
               >
                 {filter === type ? (
                   <LinearGradient

@@ -1,5 +1,6 @@
 import AddProductHeader from "@/components/Header";
 import Input from "@/components/input";
+import { useAuth } from "@/src/context/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Picker } from "@react-native-picker/picker";
@@ -8,6 +9,7 @@ import * as FileSystem from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
+import * as SecureStore from "expo-secure-store";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
@@ -142,10 +144,12 @@ const AddProduct = () => {
   const [productImages, setProductImages] = useState<string[]>([]);
   const [isPublishing, setIsPublishing] = useState(false);
 
+
   // Digital product specific fields
   const [author, setAuthor] = useState("");
   const [publishingHouse, setPublishingHouse] = useState("");
   const [deliveryType, setDeliveryType] = useState("");
+  const { isAuthenticated, logout } = useAuth();
 
   const headerFadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -266,7 +270,8 @@ const AddProduct = () => {
     try {
       setIsPublishing(true);
 
-      const token = await AsyncStorage.getItem("seller_token");
+      // const token = await AsyncStorage.getItem("seller_token");
+      const token = await SecureStore.getItemAsync("auth_token");
       if (!token) {
         Alert.alert("Error", "Seller token not found. Please log in again.");
         return;
@@ -412,7 +417,7 @@ const AddProduct = () => {
               label="Product Thumbnail"
               images={thumbnailImages}
               onImagesChange={setThumbnailImages}
-              multiple={false}
+              multiple={true}
             />
             <EnhancedImagePicker
               label="Product Images"

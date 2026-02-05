@@ -1,5 +1,6 @@
 import HomeHeader from "@/components/Header";
 import VerticalMenu from "@/components/verticalmenu";
+import { useAuth } from "@/src/context/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
@@ -22,6 +23,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const CARD_WIDTH = (SCREEN_WIDTH - 52) / 2;
@@ -258,7 +260,12 @@ const AnimatedFinancialCard = ({ item, index, onPress }) => {
 };
 
 const HomeScreen = () => {
-  const [displayName, setDisplayName] = useState("");
+  const { token, userProfile } = useAuth();
+
+
+  // const [displayName, setDisplayName] = useState("");
+
+
   const [menuVisible, setMenuVisible] = useState(false);
   const [orderCounts, setOrderCounts] = useState({});
   const [earnings, setEarnings] = useState({
@@ -366,64 +373,75 @@ const HomeScreen = () => {
   ];
 
   // --- Fetch user info ---
-  useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const savedProfile = await AsyncStorage.getItem("userProfile");
-        if (savedProfile) {
-          const profile = JSON.parse(savedProfile);
-          const name =
-            profile?.firstName || profile?.lastName
-              ? `${profile?.firstName || ""} ${profile?.lastName || ""}`.trim()
-              : "Vendor";
-          if (name !== "Vendor") {
-            setDisplayName(name);
-            return;
-          }
-        }
+  // useEffect(() => {
+  //   const fetchUser = async () => {
+  //     try {
+  //       const savedProfile = await AsyncStorage.getItem("userProfile");
+  //       if (savedProfile) {
+  //         const profile = JSON.parse(savedProfile);
+  //         const name =
+  //           profile?.firstName || profile?.lastName
+  //             ? `${profile?.firstName || ""} ${profile?.lastName || ""}`.trim()
+  //             : "Vendor";
+  //         if (name !== "Vendor") {
+  //           setDisplayName(name);
+  //           return;
+  //         }
+  //       }
 
-        const token = await AsyncStorage.getItem("seller_token");
-        if (!token) {
-          setDisplayName("Vendor");
-          return;
-        }
+  //       // const token = await AsyncStorage.getItem("seller_token");
+  //       if (!token) {
+  //         setDisplayName("Vendor");
+  //         return;
+  //       }
 
-        const response = await fetch(
-          "https://yemi.store/api/v2/seller/seller-info",
-          {
-            headers: {
-              Accept: "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+  //       const response = await fetch(
+  //         "https://yemi.store/api/v2/seller/seller-info",
+  //         {
+  //           headers: {
+  //             Accept: "application/json",
+  //             Authorization: `Bearer ${token}`,
+  //           },
+  //         }
+  //       );
 
-        if (response.ok) {
-          const data = await response.json();
-          const name =
-            data.f_name || data.l_name
-              ? `${data.f_name || ""} ${data.l_name || ""}`.trim()
-              : "Vendor";
-          setDisplayName(name);
+  //       if (response.ok) {
+  //         const data = await response.json();
+  //         const name =
+  //           data.f_name || data.l_name
+  //             ? `${data.f_name || ""} ${data.l_name || ""}`.trim()
+  //             : "Vendor";
+  //         setDisplayName(name);
 
-          const profile = {
-            firstName: data.f_name || "",
-            lastName: data.l_name || "",
-            email: data.email || "",
-            phone: data.phone || "",
-            profileImage: data.image_full_url?.path || "",
-          };
-          await AsyncStorage.setItem("userProfile", JSON.stringify(profile));
-        } else {
-          setDisplayName("Vendor");
-        }
-      } catch (error) {
-        console.log("fetchUser error:", error);
-        setDisplayName("Vendor");
-      }
-    };
-    fetchUser();
-  }, []);
+  //         const profile = {
+  //           firstName: data.f_name || "",
+  //           lastName: data.l_name || "",
+  //           email: data.email || "",
+  //           phone: data.phone || "",
+  //           profileImage: data.image_full_url?.path || "",
+  //         };
+  //         await AsyncStorage.setItem("userProfile", JSON.stringify(profile));
+  //       } else {
+  //         setDisplayName("Vendor");
+  //       }
+  //     } catch (error) {
+  //       console.log("fetchUser error:", error);
+  //       setDisplayName("Vendor");
+  //     }
+  //   };
+  //   fetchUser();
+  // }, []);
+
+  const displayName = React.useMemo(() => {
+    if (!userProfile) return "Vendor";
+
+    const name = [userProfile.firstName, userProfile.lastName]
+      .filter(Boolean)
+      .join(" ");
+
+    return name || "Vendor";
+  }, [userProfile]);
+
 
   // --- Fetch order counts ---
   const fetchOrderCounts = async () => {
@@ -450,17 +468,18 @@ const HomeScreen = () => {
   // --- Fetch earnings ---
   const fetchEarnings = async () => {
     try {
-      const token = await AsyncStorage.getItem("seller_token");
+      // const token = await AsyncStorage.getItem("seller_token");
       const response = await fetch(
         "https://yemi.store/api/v2/seller/earning-info",
         {
           method: "POST",
           headers: {
-            Authorization: token ? `Bearer ${token}` : "",
+            Authorization: `Bearer ${token}`,
             Accept: "application/json",
           },
         }
       );
+
 
       const text = await response.text();
       console.log("📥 Raw earnings response:", text);
@@ -535,7 +554,7 @@ const HomeScreen = () => {
     try {
       setIsWithdrawing(true);
 
-      const token = await AsyncStorage.getItem("seller_token");
+      // const token = await AsyncStorage.getItem("seller_token");
       if (!token) {
         Alert.alert("Error", "Authentication token not found. Please login again.");
         return;

@@ -1,5 +1,5 @@
 import ProductsHeader from "@/components/Header";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useAuth } from "@/src/context/AuthContext";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
@@ -13,6 +13,8 @@ import {
     View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+
 
 // Temporary category lookup map
 const CATEGORY_MAP: Record<string, string> = {
@@ -41,6 +43,7 @@ interface Product {
 }
 
 const ProductDetails = () => {
+    const { token } = useAuth();
     const router = useRouter();
     const params = useLocalSearchParams();
     const productId = params.productId;
@@ -50,14 +53,7 @@ const ProductDetails = () => {
 
     // Fetch product from API
     const fetchProductDetail = async () => {
-        if (!productId) {
-            console.error("No productId found");
-            setLoading(false);
-            return;
-        }
-
-        const token = await AsyncStorage.getItem("seller_token");
-        if (!token) {
+        if (!productId || !token) {
             setLoading(false);
             return;
         }
@@ -83,9 +79,6 @@ const ProductDetails = () => {
             }
 
             const data = await res.json();
-            console.log("API response:", data);
-
-            // API returns an array
             const productData = Array.isArray(data) ? data[0] : data;
             setProduct(productData);
         } catch (error) {
@@ -96,9 +89,11 @@ const ProductDetails = () => {
         }
     };
 
+
     useEffect(() => {
         fetchProductDetail();
-    }, [productId]);
+    }, [productId, token]);
+
 
     if (loading) {
         return (

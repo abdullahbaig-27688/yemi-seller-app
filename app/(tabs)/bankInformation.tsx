@@ -1,6 +1,6 @@
 import BankHeader from "@/components/Header";
+import { useAuth } from "@/src/context/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
@@ -15,29 +15,50 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const BankInfoScreen = () => {
+  const { userProfile, token, updateUserProfile } = useAuth();
+
   const [bankInfo, setBankInfo] = useState({
     holderName: "",
     bankName: "",
     branchName: "",
     accountNumber: "",
   });
+
   const [form, setForm] = useState(bankInfo);
   const [isEditing, setIsEditing] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [fetching, setFetching] = useState(true);
+  const [fetching, setFetching] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // ✅ Initialize bank info from userProfile on mount
+  useEffect(() => {
+    if (userProfile) {
+      const info = {
+        holderName: userProfile.holderName || "",
+        bankName: userProfile.bankName || "",
+        branchName: userProfile.branchName || "",
+        accountNumber: userProfile.accountNumber || "",
+      };
+      setBankInfo(info);
+      setForm(info);
+    }
+  }, [userProfile]);
 
   // Fetch bank info from server
   const fetchBankInfo = async () => {
+    if (!token) return;
+
     setFetching(true);
     try {
-      const token = await AsyncStorage.getItem("seller_token");
-      if (!token) throw new Error("No auth token found. Please login again.");
-
       const response = await fetch(
         "https://yemi.store/api/v2/seller/seller-info",
-        { headers: { Authorization: `Bearer ${token}` } }
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
       );
+
       const data = await response.json();
+
+      console.log("Bank info from API:", data); // Debug log
 
       const info = {
         holderName: data.holder_name || "",
@@ -46,70 +67,82 @@ const BankInfoScreen = () => {
         accountNumber: data.account_no || "",
       };
 
+      console.log("Parsed bank info:", info); // Debug log
+
+      // Update local state
       setBankInfo(info);
-      setForm(info); // sync form with fetched data
-    } catch (error) {
+      setForm(info);
+
+      // ✅ Only update bank fields in context
+      await updateUserProfile(info);
+    } catch (error: any) {
       console.log("Error fetching bank info:", error);
       Alert.alert("Error", error.message || "Failed to fetch bank info.");
+    } finally {
+      setFetching(false);
     }
-    setFetching(false);
   };
 
+  // ✅ Only fetch if bank info is empty (first time)
   useEffect(() => {
-    fetchBankInfo();
-  }, []);
+    if (token && !bankInfo.holderName && !bankInfo.bankName) {
+      fetchBankInfo();
+    }
+  }, [token]);
 
   // Save updated bank info
-  const handleSave = async () => {
-    if (loading) return;
-    setLoading(true);
+  const handleSaveBankInfo = async () => {
+    if (!token || saving) return;
+
+    setSaving(true);
+
     try {
-      const token = await AsyncStorage.getItem("seller_token");
-      if (!token) throw new Error("No auth token found. Please login again.");
+      const payload = {
+        f_name: userProfile.firstName,
+        l_name: userProfile.lastName,
+        email: userProfile.email,
+        phone: userProfile.phone,
 
-      // ✅ Get current profile data from AsyncStorage
-      const userProfileData = await AsyncStorage.getItem("userProfile");
-      const userProfile = userProfileData ? JSON.parse(userProfileData) : {};
+        bank_name: form.bankName,
+        branch: form.branchName,
+        account_no: form.accountNumber,
+        holder_name: form.holderName,
+      };
 
-      const response = await fetch(
+      console.log("Saving bank info payload:", payload); // Debug log
+
+      const res = await fetch(
         "https://yemi.store/api/v2/seller/seller-update",
         {
           method: "PUT",
           headers: {
-            "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            // ✅ Include existing profile fields
-            f_name: userProfile.firstName || "",
-            l_name: userProfile.lastName || "",
-            email: userProfile.email || "",
-            phone: userProfile.phone || "",
-            // Bank info fields
-            bank_name: form.bankName,
-            branch: form.branchName,
-            account_no: form.accountNumber,
-            holder_name: form.holderName,
-          }),
+          body: JSON.stringify(payload),
         }
       );
 
-      const text = await response.text();
-      console.log("Raw API response:", text);
+      const text = await res.text();
+      console.log("Save response:", text); // Debug log
 
-      const cleanText = text.replace(/^"|"$/g, "").trim();
-      if (cleanText === "Info updated successfully!") {
-        setBankInfo({ ...form });
-        setIsEditing(false);
-        Alert.alert("Success", "Bank info updated successfully!");
-      } else {
-        Alert.alert("Error", cleanText || "Failed to update bank info.");
+      if (!text.includes("success")) {
+        throw new Error(text);
       }
-    } catch (error) {
-      console.log("Error updating bank info:", error);
-      Alert.alert("Error", error.message || "Something went wrong. Try again.");
+
+      // Update local state
+      setBankInfo(form);
+      setIsEditing(false);
+
+      // ✅ Only update bank fields, preserve everything else
+      await updateUserProfile(form);
+
+      Alert.alert("Success", "Bank info updated successfully!");
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "Failed to save bank info.");
+    } finally {
+      setSaving(false);
     }
-    setLoading(false);
   };
 
   if (fetching) {
@@ -146,25 +179,22 @@ const BankInfoScreen = () => {
             <View style={styles.row}>
               <Ionicons name="person" size={18} color="#333" />
               <Text style={styles.label}>
-                Holder Name:{" "}
-                <Text style={styles.value}>{bankInfo.holderName}</Text>
+                Holder Name: <Text style={styles.value}>{bankInfo.holderName || "Not set"}</Text>
               </Text>
             </View>
             <View style={styles.row}>
               <Text style={styles.label}>
-                Bank Name: <Text style={styles.value}>{bankInfo.bankName}</Text>
+                Bank Name: <Text style={styles.value}>{bankInfo.bankName || "Not set"}</Text>
               </Text>
             </View>
             <View style={styles.row}>
               <Text style={styles.label}>
-                Branch Name:{" "}
-                <Text style={styles.value}>{bankInfo.branchName}</Text>
+                Branch Name: <Text style={styles.value}>{bankInfo.branchName || "Not set"}</Text>
               </Text>
             </View>
             <View style={styles.row}>
               <Text style={styles.label}>
-                Account Number:{" "}
-                <Text style={styles.value}>{bankInfo.accountNumber}</Text>
+                Account Number: <Text style={styles.value}>{bankInfo.accountNumber || "Not set"}</Text>
               </Text>
             </View>
           </>
@@ -200,25 +230,23 @@ const BankInfoScreen = () => {
             />
 
             <View style={styles.buttonRow}>
-              {/* Save Button */}
               <Pressable
                 style={styles.saveButton}
-                onPress={handleSave}
-                disabled={loading}
+                onPress={handleSaveBankInfo}
+                disabled={saving}
               >
                 <Text style={styles.saveButtonText}>
-                  {loading ? "Saving..." : "Save"}
+                  {saving ? "Saving..." : "Save"}
                 </Text>
               </Pressable>
 
-              {/* Cancel Button */}
               <Pressable
                 style={styles.cancelButton}
                 onPress={() => {
                   setForm({ ...bankInfo }); // revert changes
                   setIsEditing(false);
                 }}
-                disabled={loading}
+                disabled={saving}
               >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </Pressable>
@@ -237,7 +265,9 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: "#E8F1FF",
     paddingHorizontal: 20,
+    paddingVertical: 30,
     borderRadius: 30,
+    margin: 20,
     shadowColor: "#000",
     shadowOpacity: 0.08,
     shadowRadius: 10,
@@ -255,42 +285,18 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 8,
     gap: 4,
-    zIndex: 1, // make sure it stays on top
+    zIndex: 1,
   },
   editText: { color: "#fff", fontSize: 14, fontWeight: "600" },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-    marginTop: 60,
-  },
-  label: { fontSize: 15, color: "#333", fontWeight: "600" },
+  row: { flexDirection: "row", alignItems: "center", marginBottom: 16, marginTop: 10 },
+  label: { fontSize: 15, color: "#333", fontWeight: "600", marginLeft: 8 },
   value: { fontWeight: "700", color: "#111" },
   formContainer: { marginTop: 10 },
-  inputLabel: { fontSize: 14, fontWeight: "600", marginTop: 10 },
-  input: {
-    backgroundColor: "#F0F0F0",
-    padding: 10,
-    borderRadius: 8,
-    marginTop: 5,
-  },
-  buttonRow: {
-    flexDirection: "row",
-    marginTop: 20,
-    justifyContent: "space-between",
-  },
-  saveButton: {
-    backgroundColor: "#FA8232",
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-  },
-  saveButtonText: { color: "#fff", fontWeight: "700" },
-  cancelButton: {
-    backgroundColor: "#DC3545",
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-  },
-  cancelButtonText: { color: "#fff", fontWeight: "700" },
+  inputLabel: { fontSize: 14, fontWeight: "600", marginTop: 10, color: "#333" },
+  input: { backgroundColor: "#FFF", padding: 12, borderRadius: 8, marginTop: 5, borderWidth: 1, borderColor: "#E0E0E0" },
+  buttonRow: { flexDirection: "row", marginTop: 20, justifyContent: "space-between", gap: 10 },
+  saveButton: { flex: 1, backgroundColor: "#FA8232", paddingVertical: 12, paddingHorizontal: 20, borderRadius: 8, alignItems: "center" },
+  saveButtonText: { color: "#fff", fontWeight: "700", fontSize: 16 },
+  cancelButton: { flex: 1, backgroundColor: "#DC3545", paddingVertical: 12, paddingHorizontal: 20, borderRadius: 8, alignItems: "center" },
+  cancelButtonText: { color: "#fff", fontWeight: "700", fontSize: 16 },
 });

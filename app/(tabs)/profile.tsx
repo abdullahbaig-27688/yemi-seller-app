@@ -1,6 +1,6 @@
 import ProfileHeader from "@/components/Header";
+import { useAuth } from "@/src/context/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
@@ -74,18 +74,26 @@ const AnimatedInput = ({ label, value, onChangeText, icon, ...props }) => {
 };
 
 const Profile = () => {
+  const { token, logout, userProfile, setUserProfile } = useAuth();
+  // const [form, setForm] = useState(userProfile)
   const router = useRouter();
-  const [profile, setProfile] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    phone: "",
+  // ✅ Initialize form with all fields including defaults
+  const [form, setForm] = useState({
+    firstName: userProfile?.firstName || "",
+    lastName: userProfile?.lastName || "",
+    email: userProfile?.email || "",
+    phone: userProfile?.phone || "",
+    profileImage: userProfile?.profileImage || "",
+    holderName: userProfile?.holderName || "",
+    bankName: userProfile?.bankName || "",
+    branchName: userProfile?.branchName || "",
+    accountNumber: userProfile?.accountNumber || "",
     password: "",
     confirmPassword: "",
-    profileImage: "",
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
 
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -93,6 +101,25 @@ const Profile = () => {
   const imageScaleAnim = useRef(new Animated.Value(0)).current;
   const profileImagePulse = useRef(new Animated.Value(1)).current;
 
+
+  // ✅ Sync form with userProfile whenever it changes
+  useEffect(() => {
+    if (userProfile) {
+      setForm({
+        firstName: userProfile.firstName || "",
+        lastName: userProfile.lastName || "",
+        email: userProfile.email || "",
+        phone: userProfile.phone || "",
+        profileImage: userProfile.profileImage || "",
+        holderName: userProfile.holderName || "",
+        bankName: userProfile.bankName || "",
+        branchName: userProfile.branchName || "",
+        accountNumber: userProfile.accountNumber || "",
+        password: "",
+        confirmPassword: "",
+      });
+    }
+  }, [userProfile]);
   useEffect(() => {
     if (!loading) {
       Animated.parallel([
@@ -137,8 +164,6 @@ const Profile = () => {
   useEffect(() => {
     const loadProfile = async () => {
       try {
-        const token = await AsyncStorage.getItem("seller_token");
-
         if (!token) {
           console.warn("No token found");
           setLoading(false);
@@ -161,16 +186,21 @@ const Profile = () => {
             email: data.email || "",
             phone: data.phone || "",
             profileImage: data.image_full_url?.path || "",
+
+            // ✅ ADD BANK FIELDS FROM API
+            holderName: data.holder_name || "",
+            bankName: data.bank_name || "",
+            branchName: data.branch || "",
+            accountNumber: data.account_no || "",
+
             password: "",
             confirmPassword: "",
           };
 
-          setProfile(updatedProfile);
+          await setUserProfile(updatedProfile);
 
-          await AsyncStorage.setItem(
-            "userProfile",
-            JSON.stringify(updatedProfile)
-          );
+          // ✅ Remove AsyncStorage - only use SecureStore via context
+          // Don't save here, let the context handle it
 
           if (!data.f_name && !data.l_name) {
             Alert.alert(
@@ -190,7 +220,7 @@ const Profile = () => {
     };
 
     loadProfile();
-  }, []);
+  }, [token]);
 
   const handleChooseImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -208,150 +238,64 @@ const Profile = () => {
     });
 
     if (!result.canceled && result.assets && result.assets[0]) {
-      setProfile({ ...profile, profileImage: result.assets[0].uri });
+      // setUserProfile({ ...userProfile, profileImage: result.assets[0].uri });
+      setForm({ ...form, profileImage: result.assets[0].uri });
     }
   };
-
-  const handleSave = async () => {
-    if (profile.password && profile.password !== profile.confirmPassword) {
-      Alert.alert("Error", "Passwords do not match");
-      return;
-    }
-
-    if (!profile.firstName.trim() || !profile.lastName.trim()) {
-      Alert.alert("Error", "First name and last name are required");
-      return;
-    }
+  const handleSaveProfile = async () => {
+    if (saving) return;
+    setSaving(true);
 
     try {
-      setSaving(true);
-      const token = await AsyncStorage.getItem("seller_token");
-      if (!token) {
-        Alert.alert("Error", "No authentication token found");
-        return;
-      }
+      // ✅ Merge form with existing userProfile to preserve ALL fields
+      const updatedData = { ...userProfile, ...form };
 
-      const formData = new FormData();
+      const payload = {
+        // f_name: updatedData.firstName,
+        // l_name: updatedData.lastName,
+        // email: updatedData.email,
+        // phone: updatedData.phone,
 
-      formData.append("_method", "PUT");
-      formData.append("f_name", profile.firstName);
-      formData.append("l_name", profile.lastName);
-      formData.append("email", profile.email);
-      formData.append("phone", profile.phone);
+        // // ✅ Preserve bank fields
+        // bank_name: updatedData.bankName || "",
+        // branch: updatedData.branchName || "",
+        // account_no: updatedData.accountNumber || "",
+        // holder_name: updatedData.holderName || "",
 
-      console.log("Sending profile data:", {
-        f_name: profile.firstName,
-        l_name: profile.lastName,
-        email: profile.email,
-        phone: profile.phone,
-      });
-
-      if (profile.password) {
-        formData.append("password", profile.password);
-      }
-
-      if (profile.profileImage && profile.profileImage.startsWith("file")) {
-        const filename = profile.profileImage.split("/").pop();
-        const match = /\.(\w+)$/.exec(filename);
-        const type = match ? `image/${match[1]}` : "image";
-
-        formData.append("image", {
-          uri: profile.profileImage,
-          name: filename,
-          type,
-        });
-      }
+        f_name: form.firstName,
+        l_name: form.lastName,
+        email: form.email,
+        phone: form.phone,
+        // ✅ Include bank fields from form
+        bank_name: form.bankName || "",
+        branch: form.branchName || "",
+        account_no: form.accountNumber || "",
+        holder_name: form.holderName || "",
+      };
 
       const response = await fetch(
         "https://yemi.store/api/v2/seller/seller-update",
         {
-          method: "POST",
+          method: "PUT",
           headers: {
+            "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
-            Accept: "application/json",
           },
-          body: formData,
+          body: JSON.stringify(payload),
         }
       );
 
-      const responseText = await response.text();
-      console.log("Profile update response:", responseText);
-      console.log("Response status:", response.status);
+      if (!response.ok) throw new Error("Update failed");
 
-      let json;
-      try {
-        json = JSON.parse(responseText);
-      } catch {
-        json = { message: responseText };
-      }
+      // ✅ Update context with merged data (includes bank fields)
+      await setUserProfile(form);
 
-      if (response.ok || json.success || responseText.includes("success")) {
-        const message = json.message || responseText || "Profile updated successfully";
+      // ✅ Remove AsyncStorage line - context handles SecureStore
+      // await AsyncStorage.setItem("userProfile", JSON.stringify(form))
 
-        try {
-          const profileResponse = await fetch(API_URL, {
-            headers: {
-              Accept: "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          });
-
-          if (profileResponse.ok) {
-            const profileData = await profileResponse.json();
-            console.log("Fetched updated profile:", profileData);
-
-            const updatedProfile = {
-              firstName: profileData.f_name || "",
-              lastName: profileData.l_name || "",
-              email: profileData.email || "",
-              phone: profileData.phone || "",
-              profileImage: profileData.image_full_url?.path || "",
-              password: "",
-              confirmPassword: "",
-            };
-
-            setProfile(updatedProfile);
-
-            await AsyncStorage.setItem("userProfile", JSON.stringify(updatedProfile));
-
-            const currentToken = await AsyncStorage.getItem("seller_token");
-            if (currentToken) {
-              try {
-                const tokenData = JSON.parse(currentToken);
-                tokenData.f_name = profileData.f_name;
-                tokenData.l_name = profileData.l_name;
-                tokenData.email = profileData.email;
-                tokenData.phone = profileData.phone;
-                tokenData.image = profileData.image;
-                await AsyncStorage.setItem("seller_token", JSON.stringify(tokenData));
-              } catch (parseError) {
-                console.log("seller_token is a plain string, not updating it");
-              }
-            }
-          }
-        } catch (refetchError) {
-          console.error("Error refetching profile:", refetchError);
-        }
-
-        Alert.alert("Success", message, [
-          {
-            text: "OK",
-            onPress: () => {
-              // Clear password fields after successful save
-              setProfile(prev => ({
-                ...prev,
-                password: "",
-                confirmPassword: "",
-              }));
-            },
-          },
-        ]);
-      } else {
-        Alert.alert("Error", json.message || responseText || "Failed to update profile");
-      }
-    } catch (error) {
-      console.error("Update profile error:", error);
-      Alert.alert("Error", "An unexpected error occurred");
+      Alert.alert("Success", "Profile updated successfully");
+    } catch (err: any) {
+      Alert.alert("Error", err.message);
     } finally {
       setSaving(false);
     }
@@ -424,8 +368,8 @@ const Profile = () => {
                   >
                     <Image
                       source={
-                        profile.profileImage
-                          ? { uri: profile.profileImage }
+                        form.profileImage
+                          ? { uri: form.profileImage }
                           : require("@/assets/images/profile.png")
                       }
                       style={styles.profileImage}
@@ -441,11 +385,11 @@ const Profile = () => {
               </Animated.View>
 
               <Text style={styles.profileName}>
-                {profile.firstName || profile.lastName
-                  ? `${profile.firstName} ${profile.lastName}`.trim()
+                {form.firstName || form.lastName
+                  ? `${form.firstName} ${form.lastName}`.trim()
                   : "Complete Your Profile"}
               </Text>
-              <Text style={styles.profileEmail}>{profile.email}</Text>
+              <Text style={styles.profileEmail}>{form.email}</Text>
 
               <Pressable onPress={handleChooseImage} style={styles.changePhotoButton}>
                 <Ionicons name="images-outline" size={18} color="#FA8232" />
@@ -464,9 +408,9 @@ const Profile = () => {
             <View style={styles.card}>
               <AnimatedInput
                 label="First Name"
-                value={profile.firstName}
+                value={form.firstName}
                 onChangeText={(text) =>
-                  setProfile({ ...profile, firstName: text })
+                  setForm({ ...form, firstName: text })
                 }
                 icon="person-outline"
                 placeholder="Enter your first name"
@@ -474,9 +418,9 @@ const Profile = () => {
 
               <AnimatedInput
                 label="Last Name"
-                value={profile.lastName}
+                value={form.lastName}
                 onChangeText={(text) =>
-                  setProfile({ ...profile, lastName: text })
+                  setForm({ ...form, lastName: text })
                 }
                 icon="person-outline"
                 placeholder="Enter your last name"
@@ -484,8 +428,8 @@ const Profile = () => {
 
               <AnimatedInput
                 label="Email Address"
-                value={profile.email}
-                onChangeText={(text) => setProfile({ ...profile, email: text })}
+                value={form.email}
+                onChangeText={(text) => setForm({ ...form, email: text })}
                 icon="mail-outline"
                 placeholder="Enter your email"
                 keyboardType="email-address"
@@ -494,8 +438,8 @@ const Profile = () => {
 
               <AnimatedInput
                 label="Phone Number"
-                value={profile.phone}
-                onChangeText={(text) => setProfile({ ...profile, phone: text })}
+                value={form.phone}
+                onChangeText={(text) => setForm({ ...form, phone: text })}
                 icon="call-outline"
                 placeholder="Enter your phone number"
                 keyboardType="phone-pad"
@@ -520,9 +464,9 @@ const Profile = () => {
 
               <AnimatedInput
                 label="New Password"
-                value={profile.password}
+                value={form.password}
                 onChangeText={(text) =>
-                  setProfile({ ...profile, password: text })
+                  setForm({ ...form, password: text })
                 }
                 icon="lock-closed-outline"
                 placeholder="Enter new password"
@@ -531,9 +475,9 @@ const Profile = () => {
 
               <AnimatedInput
                 label="Confirm New Password"
-                value={profile.confirmPassword}
+                value={form.confirmPassword}
                 onChangeText={(text) =>
-                  setProfile({ ...profile, confirmPassword: text })
+                  setForm({ ...form, confirmPassword: text })
                 }
                 icon="lock-closed-outline"
                 placeholder="Confirm new password"
@@ -545,7 +489,7 @@ const Profile = () => {
           {/* Save Button */}
           <Pressable
             style={[styles.saveButton, saving && styles.saveButtonDisabled]}
-            onPress={handleSave}
+            onPress={handleSaveProfile}
             disabled={saving}
           >
             <LinearGradient
