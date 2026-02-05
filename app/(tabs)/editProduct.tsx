@@ -13,6 +13,7 @@ import {
   Alert,
   Animated,
   Image,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -129,6 +130,25 @@ const EditProduct = () => {
   const [minimumOrderQty, setMinimumOrderQty] = useState("1");
   const [currentStock, setCurrentStock] = useState("0");
 
+  const unitOptions = [
+    { label: "Piece (pc)", value: "pc" },
+    { label: "Kilogram (kg)", value: "kg" },
+    { label: "Gram (g)", value: "g" },
+    { label: "Liter (L)", value: "L" },
+    { label: "Milliliter (ml)", value: "ml" },
+    { label: "Meter (m)", value: "m" },
+    { label: "Centimeter (cm)", value: "cm" },
+    { label: "Box", value: "box" },
+    { label: "Pack", value: "pack" },
+    { label: "Dozen", value: "dozen" },
+    { label: "Pair", value: "pair" },
+    { label: "Set", value: "set" },
+    { label: "Carton", value: "carton" },
+    { label: "Bundle", value: "bundle" },
+    { label: "Roll", value: "roll" },
+    { label: "Sheet", value: "sheet" },
+  ];
+
   // Pricing fields
   const [discountType, setDiscountType] = useState("percent");
   const [discount, setDiscount] = useState("0");
@@ -145,6 +165,8 @@ const EditProduct = () => {
   // Categories and brands
   const [categories, setCategories] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("");
+  const [subCategoryId, setSubCategoryId] = useState("");
+  const [subSubCategoryId, setSubSubCategoryId] = useState("");
   const [brands, setBrands] = useState<any[]>([]);
   const [brandId, setBrandId] = useState("");
 
@@ -214,6 +236,8 @@ const EditProduct = () => {
         setName(product.name || "");
         setDescription(product.details || product.description || "");
         setSelectedCategory(product.category_id?.toString() || "");
+        setSubCategoryId(product.sub_category_id?.toString() || "");
+        setSubSubCategoryId(product.sub_sub_category_id?.toString() || "");
         setBrandId(product.brand_id?.toString() || "");
         setUnitPrice(product.unit_price?.toString() || "");
         setCode(product.code || "");
@@ -294,7 +318,7 @@ const EditProduct = () => {
   /* ---------------- UPDATE PRODUCT ---------------- */
   const handleUpdateProduct = async () => {
     if (!token || !productId) return;
-    if (!name.trim() || !unitPrice || parseFloat(unitPrice) <= 0 || !selectedCategory || !code.trim() || code.trim().length < 6)
+    if (!name.trim() || !unitPrice || parseFloat(unitPrice) <= 0 || !selectedCategory || !code.trim())
       return Alert.alert("Validation Error", "Please fill all required fields correctly.");
 
     try {
@@ -304,8 +328,8 @@ const EditProduct = () => {
       formData.append("name", name.trim());
       formData.append("description", description.trim());
       formData.append("category_id", selectedCategory.toString());
-      formData.append("sub_category_id", "");
-      formData.append("sub_sub_category_id", "");
+      formData.append("sub_category_id", subCategoryId || "");
+      formData.append("sub_sub_category_id", subSubCategoryId || "");
       formData.append("brand_id", brandId || "1");
       formData.append("unit_price", unitPrice);
       formData.append("code", code.trim());
@@ -366,7 +390,7 @@ const EditProduct = () => {
       console.log("Update Product Response:", response.data);
 
       Alert.alert("Success", "Product updated successfully!", [
-        { text: "OK", onPress: () => router.back() }
+        { text: "OK", onPress: () => router.replace("/myProducts") }
       ]);
     } catch (err: any) {
       if (err.response?.status === 401) router.replace("/loginScreen");
@@ -405,192 +429,292 @@ const EditProduct = () => {
         </LinearGradient>
       </Animated.View>
 
-      <ScrollView style={{ paddingHorizontal: 16 }} showsVerticalScrollIndicator={false}>
-        {/* Images */}
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Product Information */}
+        <AnimatedSection delay={0}>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="information-circle" size={24} color="#FA8232" />
+            <Text style={styles.sectionTitle}>Product Information</Text>
+          </View>
+          <LinearGradient colors={["#FFFFFF", "#F8F9FA"]} style={styles.card}>
+            <Text style={styles.inputLabel}>Product Thumbnail</Text>
+            <Pressable onPress={handlePickThumbnail} style={styles.thumbnailContainer}>
+              {thumbnail ? (
+                <Image source={{ uri: thumbnail.uri }} style={styles.thumbnailImage} />
+              ) : (
+                <View style={styles.thumbnailPlaceholder}>
+                  <Ionicons name="image" size={50} color="#999" />
+                  <Text style={styles.thumbnailText}>Tap to select thumbnail</Text>
+                </View>
+              )}
+            </Pressable>
+
+            <ImageManager
+              label="Product Images"
+              images={images}
+              onImagesChange={setImages}
+              onPickNew={handlePickImages}
+            />
+
+            <Input
+              label="Product Name"
+              value={name}
+              onChangeText={setName}
+              required={true}
+              placeholder="Enter product name"
+            />
+            <Input
+              label="Description"
+              value={description}
+              onChangeText={setDescription}
+              multiline
+              inputStyle={{ textAlignVertical: "top", height: 120 }}
+              placeholder="Describe your product..."
+            />
+          </LinearGradient>
+        </AnimatedSection>
+
+        {/* General Setup */}
         <AnimatedSection delay={100}>
-          <Text style={styles.sectionTitle}>Product Images</Text>
-          <Text style={styles.inputLabel}>Thumbnail:</Text>
-          <Pressable onPress={handlePickThumbnail} style={styles.thumbnailContainer}>
-            {thumbnail ? (
-              <Image source={{ uri: thumbnail.uri }} style={styles.thumbnailImage} />
-            ) : (
-              <View style={styles.thumbnailPlaceholder}>
-                <Ionicons name="image" size={50} color="#999" />
-                <Text style={styles.thumbnailText}>Tap to select thumbnail</Text>
-              </View>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="settings" size={24} color="#FA8232" />
+            <Text style={styles.sectionTitle}>General Setup</Text>
+          </View>
+          <LinearGradient colors={["#FFFFFF", "#F8F9FA"]} style={styles.card}>
+            <Text style={styles.inputLabel}>
+              Select Category <Text style={styles.requiredStar}>*</Text>
+            </Text>
+            <View style={styles.pickerContainer}>
+              <Picker
+                selectedValue={selectedCategory}
+                onValueChange={(value) => {
+                  setSelectedCategory(value);
+                  setSubCategoryId("");
+                  setSubSubCategoryId("");
+                }}
+                style={styles.picker}
+              >
+                <Picker.Item label="Select Category" value="" />
+                {Array.isArray(categories) &&
+                  categories.map((cat) => (
+                    <Picker.Item key={cat.id} label={cat.name} value={cat.id.toString()} />
+                  ))}
+              </Picker>
+            </View>
+
+            <Text style={styles.inputLabel}>Brand</Text>
+            <View style={styles.pickerContainer}>
+              <Picker
+                selectedValue={brandId}
+                onValueChange={setBrandId}
+                style={styles.picker}
+              >
+                <Picker.Item label="Select Brand" value="" />
+                {Array.isArray(brands) &&
+                  brands.map((b) => (
+                    <Picker.Item key={b.id} label={b.name} value={b.id.toString()} />
+                  ))}
+              </Picker>
+            </View>
+
+            <Text style={styles.inputLabel}>
+              Product Type <Text style={styles.requiredStar}>*</Text>
+            </Text>
+            <View style={styles.pickerContainer}>
+              <Picker
+                selectedValue={productType}
+                onValueChange={setProductType}
+                style={styles.picker}
+              >
+                <Picker.Item label="Physical" value="physical" />
+                <Picker.Item label="Digital" value="digital" />
+              </Picker>
+            </View>
+
+            {productType.toLowerCase() === "digital" && (
+              <>
+                <Input
+                  label="Author"
+                  value={author}
+                  onChangeText={setAuthor}
+                  required={true}
+                  placeholder="Enter author name"
+                />
+                <Input
+                  label="Publishing House"
+                  value={publishingHouse}
+                  onChangeText={setPublishingHouse}
+                  required={true}
+                  placeholder="Enter publishing house"
+                />
+                <Text style={styles.inputLabel}>
+                  Delivery Type <Text style={styles.requiredStar}>*</Text>
+                </Text>
+                <View style={styles.pickerContainer}>
+                  <Picker
+                    selectedValue={deliveryType}
+                    onValueChange={setDeliveryType}
+                    style={styles.picker}
+                  >
+                    <Picker.Item label="Select Delivery Type" value="" />
+                    <Picker.Item label="Ready after Sell" value="ready after sell" />
+                    <Picker.Item label="Ready Product" value="ready product" />
+                  </Picker>
+                </View>
+              </>
             )}
-          </Pressable>
-          <ImageManager
-            label="Product Images"
-            images={images}
-            onImagesChange={setImages}
-            onPickNew={handlePickImages}
-          />
+
+            <Input
+              label="Product SKU"
+              value={code}
+              onChangeText={setCode}
+              required={true}
+              placeholder="e.g., SKU-12345"
+            />
+
+            <Text style={styles.inputLabel}>
+              Unit <Text style={styles.requiredStar}>*</Text>
+            </Text>
+            <View style={styles.pickerContainer}>
+              <Picker
+                selectedValue={unit}
+                onValueChange={setUnit}
+                style={styles.picker}
+              >
+                {unitOptions.map((option) => (
+                  <Picker.Item
+                    key={option.value}
+                    label={option.label}
+                    value={option.value}
+                  />
+                ))}
+              </Picker>
+            </View>
+          </LinearGradient>
         </AnimatedSection>
 
-        {/* Product Info */}
+        {/* Pricing & Inventory */}
         <AnimatedSection delay={200}>
-          <Text style={styles.sectionTitle}>Product Information</Text>
-          <Input label="Product Name *" value={name} onChangeText={setName} />
-          <Input
-            label="Description"
-            value={description}
-            onChangeText={setDescription}
-            multiline
-            numberOfLines={4}
-          />
-          <Input label="Product Code *" value={code} onChangeText={setCode} />
-
-          <Text style={styles.inputLabel}>Category *</Text>
-          <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={selectedCategory}
-              onValueChange={setSelectedCategory}
-            >
-              <Picker.Item label="Select Category" value="" />
-              {categories.map((cat) => (
-                <Picker.Item key={cat.id} label={cat.name} value={cat.id.toString()} />
-              ))}
-            </Picker>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="cash" size={24} color="#FA8232" />
+            <Text style={styles.sectionTitle}>Pricing & Inventory</Text>
           </View>
+          <LinearGradient colors={["#FFFFFF", "#F8F9FA"]} style={styles.card}>
+            <Input
+              label="Unit Price ($)"
+              value={unitPrice}
+              onChangeText={setUnitPrice}
+              required={true}
+              keyboardType="numeric"
+              placeholder="0.00"
+            />
+            <Input
+              label="Minimum Order Qty"
+              value={minimumOrderQty}
+              onChangeText={setMinimumOrderQty}
+              required={true}
+              keyboardType="numeric"
+              placeholder="1"
+            />
+            <Input
+              label="Current Stock Qty"
+              value={currentStock}
+              onChangeText={setCurrentStock}
+              required={true}
+              keyboardType="numeric"
+              placeholder="0"
+            />
 
-          <Text style={styles.inputLabel}>Brand</Text>
-          <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={brandId}
-              onValueChange={setBrandId}
-            >
-              <Picker.Item label="Select Brand" value="" />
-              {brands.map((brand) => (
-                <Picker.Item key={brand.id} label={brand.name} value={brand.id.toString()} />
-              ))}
-            </Picker>
-          </View>
-        </AnimatedSection>
+            <Text style={styles.inputLabel}>Discount Type</Text>
+            <View style={styles.pickerContainer}>
+              <Picker
+                selectedValue={discountType}
+                onValueChange={setDiscountType}
+                style={styles.picker}
+              >
+                <Picker.Item label="Percentage" value="percent" />
+                <Picker.Item label="Flat" value="flat" />
+              </Picker>
+            </View>
 
-        {/* Product Type */}
-        <AnimatedSection delay={250}>
-          <Text style={styles.sectionTitle}>Product Type</Text>
-          <Text style={styles.inputLabel}>Product Type *</Text>
-          <View style={styles.pickerContainer}>
-            <Picker selectedValue={productType} onValueChange={setProductType}>
-              <Picker.Item label="Physical" value="physical" />
-              <Picker.Item label="Digital" value="digital" />
-            </Picker>
-          </View>
+            <Input
+              label="Discount Amount ($)"
+              value={discount}
+              onChangeText={setDiscount}
+              keyboardType="numeric"
+              placeholder="0"
+            />
+            <Input
+              label="Tax Amount (%)"
+              value={tax}
+              onChangeText={setTax}
+              required={true}
+              keyboardType="numeric"
+              placeholder="0"
+            />
 
-          {productType === "digital" && (
-            <>
-              <Input label="Author" value={author} onChangeText={setAuthor} />
-              <Input
-                label="Publishing House"
-                value={publishingHouse}
-                onChangeText={setPublishingHouse}
-              />
-              <Text style={styles.inputLabel}>Delivery Type *</Text>
-              <View style={styles.pickerContainer}>
-                <Picker selectedValue={deliveryType} onValueChange={setDeliveryType}>
-                  <Picker.Item label="Select Delivery Type" value="" />
-                  <Picker.Item label="Ready after Sell" value="ready after sell" />
-                  <Picker.Item label="Ready Product" value="ready product" />
-                </Picker>
-              </View>
-            </>
-          )}
-        </AnimatedSection>
+            <Text style={styles.inputLabel}>Tax Calculation</Text>
+            <View style={styles.pickerContainer}>
+              <Picker
+                selectedValue={taxCalculation}
+                onValueChange={setTaxCalculation}
+                style={styles.picker}
+              >
+                <Picker.Item label="Select Tax Calculation" value="" />
+                <Picker.Item label="Include with Product" value="include" />
+                <Picker.Item label="Exclude with Product" value="exclude" />
+              </Picker>
+            </View>
 
-        {/* Inventory */}
-        <AnimatedSection delay={300}>
-          <Text style={styles.sectionTitle}>Inventory</Text>
-          <Text style={styles.inputLabel}>Unit *</Text>
-          <View style={styles.pickerContainer}>
-            <Picker selectedValue={unit} onValueChange={setUnit}>
-              <Picker.Item label="Piece (pc)" value="pc" />
-              <Picker.Item label="Kilogram (kg)" value="kg" />
-              <Picker.Item label="Gram (g)" value="g" />
-              <Picker.Item label="Liter (l)" value="l" />
-              <Picker.Item label="Milliliter (ml)" value="ml" />
-            </Picker>
-          </View>
-          <Input
-            label="Minimum Order Quantity"
-            value={minimumOrderQty}
-            onChangeText={setMinimumOrderQty}
-            keyboardType="numeric"
-          />
-          <Input
-            label="Current Stock"
-            value={currentStock}
-            onChangeText={setCurrentStock}
-            keyboardType="numeric"
-          />
-        </AnimatedSection>
-
-        {/* Pricing */}
-        <AnimatedSection delay={350}>
-          <Text style={styles.sectionTitle}>Pricing</Text>
-          <Input
-            label="Unit Price *"
-            value={unitPrice}
-            onChangeText={setUnitPrice}
-            keyboardType="numeric"
-          />
-          <Input
-            label="Purchase Price"
-            value={purchasePrice}
-            onChangeText={setPurchasePrice}
-            keyboardType="numeric"
-          />
-
-          <Text style={styles.inputLabel}>Discount Type</Text>
-          <View style={styles.pickerContainer}>
-            <Picker selectedValue={discountType} onValueChange={setDiscountType}>
-              <Picker.Item label="Percent (%)" value="percent" />
-              <Picker.Item label="Flat Amount" value="flat" />
-            </Picker>
-          </View>
-
-          <Input
-            label="Discount"
-            value={discount}
-            onChangeText={setDiscount}
-            keyboardType="numeric"
-          />
-          <Input
-            label="Tax (%)"
-            value={tax}
-            onChangeText={setTax}
-            keyboardType="numeric"
-          />
-          <Input
-            label="Shipping Cost"
-            value={shippingCost}
-            onChangeText={setShippingCost}
-            keyboardType="numeric"
-          />
+            <Input
+              label="Purchase Price ($)"
+              value={purchasePrice}
+              onChangeText={setPurchasePrice}
+              required={true}
+              keyboardType="numeric"
+              placeholder="0.00"
+            />
+            <Input
+              label="Shipping Cost ($)"
+              value={shippingCost}
+              onChangeText={setShippingCost}
+              required={true}
+              keyboardType="numeric"
+              placeholder="0.00"
+            />
+          </LinearGradient>
         </AnimatedSection>
 
         {/* Publish & Status */}
-        <AnimatedSection delay={400}>
-          <Text style={styles.sectionTitle}>Publish & Status</Text>
-          <View style={styles.switchRow}>
-            <Text style={styles.switchLabel}>Published:</Text>
-            <Switch
-              value={published === "1"}
-              onValueChange={(val) => setPublished(val ? "1" : "0")}
-              trackColor={{ false: "#ccc", true: "#FA8232" }}
-              thumbColor="#fff"
-            />
+        <AnimatedSection delay={300}>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="eye" size={24} color="#FA8232" />
+            <Text style={styles.sectionTitle}>Publish & Status</Text>
           </View>
-          <View style={styles.switchRow}>
-            <Text style={styles.switchLabel}>Active:</Text>
-            <Switch
-              value={status === "1"}
-              onValueChange={(val) => setStatus(val ? "1" : "0")}
-              trackColor={{ false: "#ccc", true: "#FA8232" }}
-              thumbColor="#fff"
-            />
-          </View>
+          <LinearGradient colors={["#FFFFFF", "#F8F9FA"]} style={styles.card}>
+            <View style={styles.switchRow}>
+              <Text style={styles.switchLabel}>Published</Text>
+              <Switch
+                value={published === "1"}
+                onValueChange={(val) => setPublished(val ? "1" : "0")}
+                trackColor={{ false: "#ccc", true: "#FA8232" }}
+                thumbColor="#fff"
+              />
+            </View>
+            <View style={styles.switchRow}>
+              <Text style={styles.switchLabel}>Active Status</Text>
+              <Switch
+                value={status === "1"}
+                onValueChange={(val) => setStatus(val ? "1" : "0")}
+                trackColor={{ false: "#ccc", true: "#FA8232" }}
+                thumbColor="#fff"
+              />
+            </View>
+          </LinearGradient>
         </AnimatedSection>
 
         <Pressable
@@ -599,15 +723,18 @@ const EditProduct = () => {
           disabled={isUpdating}
         >
           <LinearGradient
-            colors={isUpdating ? ["#ccc", "#999"] : ["#FA8232", "#FF6B35"]}
+            colors={isUpdating ? ["#E8E8E8", "#D0D0D0"] : ["#FA8232", "#FF6B35"]}
             style={styles.updateButtonGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
           >
             {isUpdating ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color="#FFF" />
             ) : (
-              <Text style={styles.updateText}>Update Product</Text>
+              <>
+                <Ionicons name="save" size={20} color="#FFF" />
+                <Text style={styles.updateText}>Update Product</Text>
+              </>
             )}
           </LinearGradient>
         </Pressable>
@@ -623,114 +750,119 @@ export default EditProduct;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff"
+    backgroundColor: "#F5F7FA",
   },
   header: {
-    padding: 16
+    paddingVertical: 16,
+    paddingTop: Platform.OS === "ios" ? 0 : 16,
+    elevation: 8,
+    shadowColor: "#FA8232",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  content: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 20,
+    paddingBottom: 100,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
-    alignItems: "center"
+    alignItems: "center",
+    backgroundColor: "#F5F7FA",
   },
   loadingText: {
-    marginTop: 12,
+    marginTop: 16,
     fontSize: 16,
-    color: "#333"
-  },
-  sectionTitle: {
-    fontSize: 18,
+    color: "#666",
     fontWeight: "600",
-    marginTop: 24,
-    marginBottom: 12,
-    color: "#333"
   },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: "#333",
-    marginBottom: 8,
-    marginTop: 12,
-  },
-  pickerContainer: {
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 8,
-    marginBottom: 12,
-    backgroundColor: "#f9f9f9",
-  },
-  thumbnailContainer: {
+
+  /* Section Header */
+  sectionHeader: {
+    flexDirection: "row",
     alignItems: "center",
+    gap: 10,
     marginBottom: 16,
     marginTop: 8,
   },
-  thumbnailImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: "#FA8232",
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#1A1A1A",
+    letterSpacing: -0.3,
   },
-  thumbnailPlaceholder: {
-    width: 120,
-    height: 120,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: "#ddd",
-    borderStyle: "dashed",
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#f9f9f9",
+
+  /* Card */
+  card: {
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.05)",
   },
-  thumbnailText: {
-    fontSize: 12,
-    color: "#999",
-    marginTop: 8,
-    textAlign: "center",
-  },
+
+  /* Image Picker Styles Adapted */
   imageManagerContainer: {
-    marginBottom: 16
+    marginBottom: 20,
   },
   imageManagerHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 8
+    alignItems: "center",
+    marginBottom: 12,
   },
   imageManagerLabel: {
-    fontSize: 16,
-    fontWeight: "600"
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#333",
   },
   imageCount: {
-    fontSize: 14,
-    color: "#555"
+    fontSize: 13,
+    color: "#FA8232",
+    fontWeight: "600",
   },
   imageScroll: {
-    flexDirection: "row"
+    marginBottom: 10,
   },
   imageItem: {
+    position: "relative",
     marginRight: 12,
-    position: "relative"
   },
   imageThumb: {
     width: 100,
     height: 100,
-    borderRadius: 8
+    borderRadius: 12,
+    backgroundColor: "#F0F0F0",
   },
   removeButton: {
     position: "absolute",
     top: -8,
     right: -8,
-    backgroundColor: "#fff",
+    backgroundColor: "#FFF",
     borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   existingBadge: {
     position: "absolute",
     bottom: 4,
     left: 4,
-    backgroundColor: "#0008",
+    backgroundColor: "rgba(0,0,0,0.6)",
     paddingHorizontal: 6,
     paddingVertical: 3,
-    borderRadius: 4
+    borderRadius: 4,
   },
   existingText: {
     color: "#fff",
@@ -740,57 +872,115 @@ const styles = StyleSheet.create({
   addButton: {
     width: 100,
     height: 100,
-    justifyContent: "center",
-    alignItems: "center"
+    borderRadius: 12,
+    overflow: "hidden",
   },
   addButtonGradient: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    width: "100%",
-    borderRadius: 8
+    gap: 6,
   },
   addButtonText: {
-    color: "#fff",
+    color: "#FFF",
     fontSize: 12,
-    marginTop: 4,
     fontWeight: "600",
   },
+
+  /* Thumbnail Specific */
+  thumbnailContainer: {
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  thumbnailImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 16,
+    borderWidth: 3,
+    borderColor: "#FA8232",
+  },
+  thumbnailPlaceholder: {
+    width: 120,
+    height: 120,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: "#E0E0E0",
+    borderStyle: "dashed",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#F8F9FA",
+  },
+  thumbnailText: {
+    fontSize: 12,
+    color: "#999",
+    marginTop: 8,
+    fontWeight: "600",
+  },
+
+  /* Input Labels */
+  inputLabel: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 10,
+  },
+  requiredStar: {
+    color: "#e74c3c",
+  },
+
+  /* Picker */
+  pickerContainer: {
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: "#E0E0E0",
+    backgroundColor: "#F8F9FA",
+    marginBottom: 20,
+    overflow: "hidden",
+  },
+  picker: {
+    height: 50,
+  },
+
+  /* Switch */
   switchRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
+    borderBottomColor: "#F0F0F0",
   },
   switchLabel: {
     fontSize: 16,
     color: "#333",
     fontWeight: "500",
   },
+
+  /* Update Button */
   updateButton: {
-    marginVertical: 24,
-    marginHorizontal: 0,
-    borderRadius: 8,
+    marginTop: 10,
+    borderRadius: 14,
     overflow: "hidden",
-    elevation: 3,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    elevation: 4,
+    shadowColor: "#FA8232",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
   },
   updateButtonDisabled: {
-    opacity: 0.6,
+    opacity: 0.7,
   },
   updateButtonGradient: {
-    paddingVertical: 16,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    paddingVertical: 16,
+    gap: 8,
   },
   updateText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600"
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#FFF",
+    letterSpacing: 0.5,
   },
 });
