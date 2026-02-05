@@ -23,7 +23,12 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 /* ---------------- ANIMATED SECTION COMPONENT ---------------- */
-const AnimatedSection = ({ children, delay = 0 }) => {
+interface AnimatedSectionProps {
+  children: React.ReactNode;
+  delay?: number;
+}
+
+const AnimatedSection: React.FC<AnimatedSectionProps> = ({ children, delay = 0 }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
 
@@ -53,14 +58,21 @@ const AnimatedSection = ({ children, delay = 0 }) => {
 };
 
 /* ---------------- IMAGE MANAGER COMPONENT ---------------- */
-const ImageManager = ({ label, images, onImagesChange, onPickNew }) => {
-  const removeImage = (index) => {
+interface ImageManagerProps {
+  label: string;
+  images: any[];
+  onImagesChange: (images: any[]) => void;
+  onPickNew: () => void;
+}
+
+const ImageManager: React.FC<ImageManagerProps> = ({ label, images, onImagesChange, onPickNew }) => {
+  const removeImage = (index: number) => {
     Alert.alert("Remove Image", "Are you sure you want to remove this image?", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Remove",
         style: "destructive",
-        onPress: () => onImagesChange(images.filter((_, i) => i !== index)),
+        onPress: () => onImagesChange(images.filter((_, i: number) => i !== index)),
       },
     ]);
   };
@@ -73,7 +85,7 @@ const ImageManager = ({ label, images, onImagesChange, onPickNew }) => {
       </View>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.imageScroll}>
-        {images.map((img, index) => (
+        {images.map((img: any, index: number) => (
           <View key={index} style={styles.imageItem}>
             <Image source={{ uri: img.uri }} style={styles.imageThumb} />
             <Pressable style={styles.removeButton} onPress={() => removeImage(index)}>
@@ -226,15 +238,19 @@ const EditProduct = () => {
         setDeliveryType(product.delivery_type || "");
 
         setThumbnail(product.thumbnail_full_url?.path
-          ? { uri: product.thumbnail_full_url.path, isExisting: true }
+          ? { uri: product.thumbnail_full_url.path, isExisting: true, key: product.thumbnail_full_url.key || product.thumbnail }
           : product.thumbnail
-            ? { uri: product.thumbnail.startsWith("http") ? product.thumbnail : `https://yemi.store/storage/app/public/product/thumbnail/${product.thumbnail}`, isExisting: true }
+            ? { uri: product.thumbnail.startsWith("http") ? product.thumbnail : `https://yemi.store/storage/app/public/product/thumbnail/${product.thumbnail}`, isExisting: true, key: product.thumbnail }
             : null
         );
 
         setImages(
           Array.isArray(product.images_full_url)
-            ? product.images_full_url.filter((img: any) => img?.path).map((img: any) => ({ uri: img.path, isExisting: true }))
+            ? product.images_full_url.filter((img: any) => img?.path).map((img: any) => ({
+              uri: img.path,
+              isExisting: true,
+              key: img.key || img.path.split('/').pop()
+            }))
             : []
         );
       } catch (err: any) {
@@ -288,6 +304,8 @@ const EditProduct = () => {
       formData.append("name", name.trim());
       formData.append("description", description.trim());
       formData.append("category_id", selectedCategory.toString());
+      formData.append("sub_category_id", "");
+      formData.append("sub_sub_category_id", "");
       formData.append("brand_id", brandId || "1");
       formData.append("unit_price", unitPrice);
       formData.append("code", code.trim());
@@ -304,6 +322,7 @@ const EditProduct = () => {
       formData.append("discount_type", discountType);
       formData.append("discount", discount);
       formData.append("tax", tax);
+      formData.append("lang", "en");
       if (taxCalculation) formData.append("tax_calculation", taxCalculation);
       if (purchasePrice) formData.append("purchase_price", purchasePrice);
       formData.append("shipping_cost", shippingCost);
@@ -315,27 +334,36 @@ const EditProduct = () => {
         if (deliveryType) formData.append("delivery_type", deliveryType);
       }
 
-      if (thumbnail?.uri && !thumbnail.isExisting)
+      if (thumbnail?.uri && !thumbnail.isExisting) {
         formData.append("thumbnail", {
           uri: thumbnail.uri,
           type: thumbnail.type || "image/jpeg",
           name: thumbnail.name || "thumbnail.jpg"
         } as any);
+      } else if (thumbnail?.isExisting) {
+        formData.append("thumbnail", thumbnail.key);
+      }
 
-      images.filter(img => !img.isExisting).forEach((img, i) =>
-        formData.append("images[]", {
-          uri: img.uri,
-          type: img.type || "image/jpeg",
-          name: img.name || `image_${i}.jpg`
-        } as any)
-      );
+      images.forEach((img, i) => {
+        if (img.isExisting) {
+          formData.append("images[]", img.key);
+        } else {
+          formData.append("images[]", {
+            uri: img.uri,
+            type: img.type || "image/jpeg",
+            name: img.name || `image_${i}.jpg`
+          } as any);
+        }
+      });
 
-      await axios.post(`https://yemi.store/api/v2/seller/products/update/${productId}`, formData, {
+      const response = await axios.post(`https://yemi.store/api/v2/seller/products/update/${productId}`, formData, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "multipart/form-data"
         }
       });
+
+      console.log("Update Product Response:", response.data);
 
       Alert.alert("Success", "Product updated successfully!", [
         { text: "OK", onPress: () => router.back() }

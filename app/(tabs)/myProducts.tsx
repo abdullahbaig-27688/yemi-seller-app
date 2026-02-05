@@ -25,7 +25,15 @@ import { SafeAreaView } from "react-native-safe-area-context";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 /* ---------------- ANIMATED PRODUCT CARD ---------------- */
-const AnimatedProductCard = ({ item, index, onPress, onEdit, onDelete }) => {
+interface ProductCardProps {
+  item: any;
+  index: number;
+  onPress: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}
+
+const AnimatedProductCard: React.FC<ProductCardProps> = ({ item, index, onPress, onEdit, onDelete }) => {
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -65,15 +73,15 @@ const AnimatedProductCard = ({ item, index, onPress, onEdit, onDelete }) => {
 
   const getStatusConfig = () => {
     if (item.published === 0 || item.status === 0) {
-      return { label: "Draft", color: "#95a5a6", icon: "document-text-outline" };
+      return { label: "Draft", color: "#95a5a6", icon: "document-text-outline" as any };
     }
     if (item.current_stock === 0) {
-      return { label: "Out of Stock", color: "#e74c3c", icon: "alert-circle-outline" };
+      return { label: "Out of Stock", color: "#e74c3c", icon: "alert-circle-outline" as any };
     }
     if (item.current_stock < item.min_qty) {
-      return { label: "Low Stock", color: "#f39c12", icon: "warning-outline" };
+      return { label: "Low Stock", color: "#f39c12", icon: "warning-outline" as any };
     }
-    return { label: "Active", color: "#27ae60", icon: "checkmark-circle-outline" };
+    return { label: "Active", color: "#27ae60", icon: "checkmark-circle-outline" as any };
   };
 
   const statusConfig = getStatusConfig();
@@ -192,8 +200,8 @@ const MyProducts = () => {
     ]).start();
   }, []);
 
-  const fetchProducts = async (isRefreshing = false) => {
-    console.log("🔄 Fetching products...");
+  const fetchProducts = useCallback(async (isRefreshing = false) => {
+    console.log("🔄 Fetching products with filter:", filter, "search:", searchQuery);
     if (!isRefreshing) setLoading(true);
 
     try {
@@ -222,6 +230,9 @@ const MyProducts = () => {
         }
       }
 
+      // Add timestamp to prevent caching
+      params.t = Date.now();
+
       const res = await axios.get("https://yemi.store/api/v2/seller/products/list", {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -230,7 +241,7 @@ const MyProducts = () => {
         params,
       });
 
-      console.log("✅ Products fetched");
+      console.log("✅ Products fetched:", res.data?.length || res.data?.products?.length || 0);
 
       let productsArray: any[] = [];
       if (Array.isArray(res.data)) productsArray = res.data;
@@ -243,7 +254,6 @@ const MyProducts = () => {
         imageSource: getProductImage(product)
       }));
 
-      console.log("📦 Processed products:", processedProducts.length);
       setProducts(processedProducts);
     } catch (error: any) {
       console.log("❌ Error fetching products:", error.message);
@@ -251,24 +261,28 @@ const MyProducts = () => {
         Alert.alert("Session Expired", "Please login again");
         logout();
       } else {
-        Alert.alert("Error", "Failed to fetch products. Please check your connection.");
+        Alert.alert("Error", "Failed to fetch products.");
       }
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [token, searchQuery, filter, logout]);
 
-  // MAIN FIX: Use useFocusEffect to always refresh when screen is focused
+  // Use useFocusEffect to always refresh when screen is focused
   useFocusEffect(
     useCallback(() => {
-      console.log("👁️ Screen focused - fetching products");
       fetchProducts(false);
-      return () => {
-        console.log("👋 Screen unfocused");
-      };
-    }, [token])
+    }, [fetchProducts])
   );
+
+  // Re-fetch when search or filter changes (with debounce for search)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchProducts(false);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchQuery, filter]);
 
   const onRefresh = () => {
     console.log("🔄 Manual refresh triggered");
@@ -469,16 +483,10 @@ const MyProducts = () => {
               placeholder="Search products..."
               placeholderTextColor="#999"
               value={searchQuery}
-              onChangeText={(text) => {
-                setSearchQuery(text);
-                setTimeout(() => fetchProducts(false), 500);
-              }}
+              onChangeText={setSearchQuery}
             />
             {searchQuery.length > 0 && (
-              <Pressable onPress={() => {
-                setSearchQuery("");
-                fetchProducts(false);
-              }}>
+              <Pressable onPress={() => setSearchQuery("")}>
                 <Ionicons name="close-circle" size={20} color="#999" />
               </Pressable>
             )}
@@ -495,10 +503,7 @@ const MyProducts = () => {
                   styles.filterButton,
                   filter === type && styles.activeFilterButton,
                 ]}
-                onPress={() => {
-                  setFilter(type);
-                  setTimeout(() => fetchProducts(false), 100);
-                }}
+                onPress={() => setFilter(type)}
               >
                 {filter === type ? (
                   <LinearGradient
